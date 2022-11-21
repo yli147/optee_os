@@ -58,6 +58,8 @@ def get_arch_id(elffile):
         return 0
     if e_machine == 'EM_AARCH64':
         return 1
+    if e_machine == 'EM_RISCV':
+        return 2
     eprint('Unknown e_machine "%s"' % e_machine)
     sys.exit(1)
 
@@ -153,7 +155,7 @@ def get_pager_bin(elffile):
 def get_reloc_bin(elffile):
     if get_arch_id(elffile) == 0:
         exp_rel_type = ENUM_RELOC_TYPE_ARM['R_ARM_RELATIVE']
-    else:
+    elif get_arch_id(elffile) == 1:
         exp_rel_type = ENUM_RELOC_TYPE_AARCH64['R_AARCH64_RELATIVE']
 
     link_address = get_symbol(elffile, '__text_start')['st_value']

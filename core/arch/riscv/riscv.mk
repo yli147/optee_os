@@ -14,6 +14,7 @@ include mk/cc-option.mk
 
 CFG_MMAP_REGIONS ?= 13
 CFG_RESERVED_VASPACE_SIZE ?= (1024 * 1024 * 10)
+CFG_MAX_CACHE_LINE_SHIFT ?= 6
 
 ifeq ($(CFG_RV64_core),y)
 CFG_KERN_LINKER_FORMAT ?= elf64-littleriscv
@@ -35,7 +36,7 @@ endif
 
 core-platform-cppflags	+= -I$(arch-dir)/include
 core-platform-subdirs += \
-	$(addprefix $(arch-dir)/, kernel) $(platform-dir)
+	$(addprefix $(arch-dir)/, kernel mm tee) $(platform-dir)
 
 # more convenient to move it to platform instead
 rv64-platform-cppflags += -mcmodel=medany -march=rv64imafd -mabi=lp64d
