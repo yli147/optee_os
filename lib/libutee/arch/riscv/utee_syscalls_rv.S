@@ -13,13 +13,14 @@ FUNC \name , :
 	.error "Too many arguments for syscall"
 	.endif
 
-	li	a0, \scn
+	li	t0, \scn
 	ecall
+	ret
 	END_FUNC \name
 	.endm
 
 FUNC _utee_panic, :
-	j	.
+	j	__utee_panic
 /* Not reached */
 END_FUNC _utee_panic
 

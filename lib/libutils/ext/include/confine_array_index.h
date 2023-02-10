@@ -147,15 +147,9 @@ static inline size_t confine_array_index(size_t index, size_t size) {
 static inline size_t confine_array_index(size_t index, size_t size) {
   // RISC-V does not have a conditional move instruction, therefore, use
   // a short forward branche instead.
-  size_t safe_index = 0;
-  __asm__(
-    "bne %1, %2, 1f\n"
-    "mv %0, %1\n"
-	"1:\n"
-  : "+r"(safe_index)
-  : "r"(index), "r"(size)
-  : "cc");
-  return safe_index;
+	if (index < size)
+		return index;
+	return 0;
 }
 #endif
 

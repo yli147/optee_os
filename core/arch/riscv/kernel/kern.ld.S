@@ -227,6 +227,7 @@ SECTIONS
 		   of the ram data address */
 		__data_start = .;
 		*(.data .data.* .gnu.linkonce.d.*)
+		/*__global_pointer$ = . + 0x800;*/
 		*(.sdata .sdata.*)
 		. = ALIGN(8);
 	}

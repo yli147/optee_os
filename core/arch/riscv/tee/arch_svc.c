@@ -193,15 +193,16 @@ static void __noprof ftrace_syscall_leave(void)
 }
 #endif
 
-static void get_scn_max_args(struct thread_trap_frame *regs, size_t *scn,
+static void get_scn_max_args(struct thread_svc_regs *regs, size_t *scn,
 		size_t *max_args)
 {
-
+	*scn = regs->t0;
+	*max_args = 0;
 }
 
-static void set_svc_retval(struct thread_trap_frame *regs, uint64_t ret_val)
+static void set_svc_retval(struct thread_svc_regs *regs, uint64_t ret_val)
 {
-
+	regs->a0 = ret_val;
 }
 
 static syscall_t get_tee_syscall_func(size_t num)
@@ -220,7 +221,7 @@ static syscall_t get_tee_syscall_func(size_t num)
 	//			 &sc_table[TEE_SCN_MAX].fn + 1);
 }
 
-bool user_ta_handle_svc(struct thread_trap_frame *regs)
+bool user_ta_handle_svc(struct thread_svc_regs *regs)
 {
 	size_t scn = 0;
 	size_t max_args = 0;
@@ -265,7 +266,7 @@ static syscall_t get_ldelf_syscall_func(size_t num)
 	return sc_table[num].fn;
 }
 
-bool ldelf_handle_svc(struct thread_trap_frame *regs)
+bool ldelf_handle_svc(struct thread_svc_regs *regs)
 {
 	size_t scn = 0;
 	size_t max_args = 0;
@@ -296,105 +297,50 @@ bool ldelf_handle_svc(struct thread_trap_frame *regs)
 	return scn != LDELF_RETURN && scn != LDELF_PANIC;
 }
 
-#define TA32_CONTEXT_MAX_SIZE		(14 * sizeof(uint32_t))
-#define TA64_CONTEXT_MAX_SIZE		(2 * sizeof(uint64_t))
+#define TA_CONTEXT_MAX_SIZE	(RISCV_XLEN_BYTES * 32)
 
-#ifdef ARM32
 #ifdef CFG_UNWIND
-/* Get register values pushed onto the stack by _utee_panic() */
-static void save_panic_regs_a32_ta(struct thread_specific_data *tsd,
-				  uint32_t *pushed)
+
+static void save_panic_regs_rv_ta(struct thread_specific_data *tsd,
+				  unsigned long *pushed)
 {
 	tsd->abort_regs = (struct thread_abort_regs){
-		.elr = pushed[0],
-		.r0 = pushed[1],
-		.r1 = pushed[2],
-		.r2 = pushed[3],
-		.r3 = pushed[4],
-		.r4 = pushed[5],
-		.r5 = pushed[6],
-		.r6 = pushed[7],
-		.r7 = pushed[8],
-		.r8 = pushed[9],
-		.r9 = pushed[10],
-		.r10 = pushed[11],
-		.r11 = pushed[12],
-		.usr_sp = (uint32_t)pushed,
-		.usr_lr = pushed[13],
-		.spsr = read_spsr(),
+		.ra = pushed[0],
+		.sp = (unsigned long)pushed,
+		.gp = pushed[1],
+		.tp = pushed[2],
+		.t0 = pushed[3],
+		.t1 = pushed[4],
+		.t2 = pushed[5],
+		.s0 = pushed[6],
+		.s1 = pushed[7],
+		.a0 = pushed[8],
+		.a1 = pushed[9],
+		.a2 = pushed[10],
+		.a3 = pushed[11],
+		.a4 = pushed[12],
+		.a5 = pushed[13],
+		.a6 = pushed[14],
+		.a7 = pushed[15],
+		.s2 = pushed[16],
+		.s3 = pushed[17],
+		.s4 = pushed[18],
+		.s5 = pushed[19],
+		.s6 = pushed[20],
+		.s7 = pushed[21],
+		.s8 = pushed[22],
+		.s9 = pushed[23],
+		.s10 = pushed[24],
+		.s11 = pushed[25],
+		.t3 = pushed[26],
+		.t4 = pushed[27],
+		.t5 = pushed[28],
+		.t6 = pushed[29],
+		.status = read_csr(CSR_XSTATUS),
 	};
 }
 
-static void save_panic_stack(struct thread_svc_regs *regs)
-{
-	struct thread_specific_data *tsd = thread_get_tsd();
-	struct ts_session *s = ts_get_current_session();
-	struct user_ta_ctx *utc = to_user_ta_ctx(s->ctx);
-
-	tsd->abort_type = ABORT_TYPE_USER_MODE_PANIC;
-	tsd->abort_descr = 0;
-	tsd->abort_va = 0;
-
-	if (vm_check_access_rights(&utc->uctx,
-				   TEE_MEMORY_ACCESS_READ |
-				   TEE_MEMORY_ACCESS_WRITE,
-				   (uaddr_t)regs->r1, TA32_CONTEXT_MAX_SIZE)) {
-		TAMSG_RAW("");
-		TAMSG_RAW("Can't unwind invalid user stack 0x%" PRIxUA,
-				(uaddr_t)regs->r1);
-		return;
-	}
-
-	save_panic_regs_a32_ta(tsd, (uint32_t *)regs->r1);
-}
-#else /* CFG_UNWIND */
-static void save_panic_stack(struct thread_svc_regs *regs __unused)
-{
-	struct thread_specific_data *tsd = thread_get_tsd();
-
-	tsd->abort_type = ABORT_TYPE_USER_MODE_PANIC;
-}
-#endif
-#endif /*ARM32*/
-
-#ifdef ARM64
-#ifdef CFG_UNWIND
-/* Get register values pushed onto the stack by _utee_panic() (32-bit TA) */
-static void save_panic_regs_a32_ta(struct thread_specific_data *tsd,
-				   uint32_t *pushed)
-{
-	tsd->abort_regs = (struct thread_abort_regs){
-		.elr = pushed[0],
-		.x0 = pushed[1],
-		.x1 = pushed[2],
-		.x2 = pushed[3],
-		.x3 = pushed[4],
-		.x4 = pushed[5],
-		.x5 = pushed[6],
-		.x6 = pushed[7],
-		.x7 = pushed[8],
-		.x8 = pushed[9],
-		.x9 = pushed[10],
-		.x10 = pushed[11],
-		.x11 = pushed[12],
-		.x13 = (uint64_t)pushed,
-		.x14 = pushed[13],
-		.spsr = (SPSR_MODE_RW_32 << SPSR_MODE_RW_SHIFT),
-	};
-}
-
-/* Get register values pushed onto the stack by _utee_panic() (64-bit TA) */
-static void save_panic_regs_a64_ta(struct thread_specific_data *tsd,
-				   uint64_t *pushed)
-{
-	tsd->abort_regs = (struct thread_abort_regs){
-		.x29 = pushed[0],
-		.elr = pushed[1],
-		.spsr = (SPSR_64_MODE_EL0 << SPSR_64_MODE_EL_SHIFT),
-	};
-}
-
-static void save_panic_stack(struct thread_svc_regs *regs)
+void scall_save_panic_stack(struct thread_svc_regs *regs)
 {
 	struct thread_specific_data *tsd = thread_get_tsd();
 	struct ts_session *s = ts_get_current_session();
@@ -403,13 +349,11 @@ static void save_panic_stack(struct thread_svc_regs *regs)
 	if (vm_check_access_rights(&utc->uctx,
 				   TEE_MEMORY_ACCESS_READ |
 				   TEE_MEMORY_ACCESS_WRITE,
-				   (uaddr_t)regs->x1,
-				   utc->uctx.is_32bit ?
-				   TA32_CONTEXT_MAX_SIZE :
-				   TA64_CONTEXT_MAX_SIZE)) {
+				   (uaddr_t)regs->a1,
+				   TA_CONTEXT_MAX_SIZE)) {
 		TAMSG_RAW("");
-		TAMSG_RAW("Can't unwind invalid user stack 0x%" PRIxUA,
-				(uaddr_t)regs->x1);
+		TAMSG_RAW("Can't unwind invalid user stack 0x%"PRIxUA,
+			  (uaddr_t)regs->a1);
 		return;
 	}
 
@@ -417,39 +361,31 @@ static void save_panic_stack(struct thread_svc_regs *regs)
 	tsd->abort_descr = 0;
 	tsd->abort_va = 0;
 
-	if (utc->uctx.is_32bit)
-		save_panic_regs_a32_ta(tsd, (uint32_t *)regs->x1);
-	else
-		save_panic_regs_a64_ta(tsd, (uint64_t *)regs->x1);
+	save_panic_regs_rv_ta(tsd, (unsigned long *)regs->a1);
 }
+
 #else /* CFG_UNWIND */
-static void save_panic_stack(struct thread_svc_regs *regs __unused)
+void scall_save_panic_stack(struct thread_svc_regs *regs __unused)
 {
 	struct thread_specific_data *tsd = thread_get_tsd();
 
 	tsd->abort_type = ABORT_TYPE_USER_MODE_PANIC;
 }
 #endif /* CFG_UNWIND */
-#endif /*ARM64*/
+
 
 uint32_t tee_svc_sys_return_helper(uint32_t ret, bool panic,
 				   uint32_t panic_code,
-				   struct thread_trap_frame *regs)
+				   struct thread_svc_regs *regs)
 {
 	if (panic) {
 		TAMSG_RAW("");
 		TAMSG_RAW("TA panicked with code 0x%" PRIx32, panic_code);
-		//save_panic_stack(regs);
+		scall_save_panic_stack(regs);
 	}
 
-#ifdef ARM32
-	regs->r1 = panic;
-	regs->r2 = panic_code;
-#endif
-#ifdef ARM64
-	regs->x1 = panic;
-	regs->x2 = panic_code;
-#endif
+	regs->a1 = panic;
+	regs->a2 = panic_code;
 
 	return ret;
 }

@@ -10,11 +10,11 @@
 #include <kernel/thread.h>
 
 /* These functions are overridable by the specific target */
-void tee_entry_get_api_call_count(struct thread_ecall_args *args);
-void tee_entry_get_api_uuid(struct thread_ecall_args *args);
-void tee_entry_get_api_revision(struct thread_ecall_args *args);
-void tee_entry_get_os_uuid(struct thread_ecall_args *args);
-void tee_entry_get_os_revision(struct thread_ecall_args *args);
+void tee_entry_get_api_call_count(struct thread_smc_args *args);
+void tee_entry_get_api_uuid(struct thread_smc_args *args);
+void tee_entry_get_api_revision(struct thread_smc_args *args);
+void tee_entry_get_os_uuid(struct thread_smc_args *args);
+void tee_entry_get_os_revision(struct thread_smc_args *args);
 
 /*
  * Returns the number of calls recognized by tee_entry(). Used by the
@@ -27,7 +27,7 @@ size_t tee_entry_generic_get_api_call_count(void);
  * Fast call entry, __weak, overridable. If overridden should call
  * __tee_entry_fast() at the end in order to handle the standard functions.
  */
-void tee_entry_fast(struct thread_ecall_args *args);
-void __tee_entry_fast(struct thread_ecall_args *args);
+void tee_entry_fast(struct thread_smc_args *args);
+void __tee_entry_fast(struct thread_smc_args *args);
 
 #endif /* TEE_ENTRY_FAST_H */

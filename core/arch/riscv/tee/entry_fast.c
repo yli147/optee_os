@@ -16,7 +16,7 @@
 #include <tee/entry_fast.h>
 
 #ifdef CFG_CORE_RESERVED_SHM
-static void tee_entry_get_shm_config(struct thread_ecall_args *args)
+static void tee_entry_get_shm_config(struct thread_smc_args *args)
 {
 	args->a0 = OPTEE_SMC_RETURN_OK;
 	args->a1 = default_nsec_shm_paddr;
@@ -26,7 +26,7 @@ static void tee_entry_get_shm_config(struct thread_ecall_args *args)
 }
 #endif
 
-static void tee_entry_fastcall_l2cc_mutex(struct thread_ecall_args *args)
+static void tee_entry_fastcall_l2cc_mutex(struct thread_smc_args *args)
 {
 	TEE_Result ret;
 #ifdef ARM32
@@ -62,7 +62,7 @@ static void tee_entry_fastcall_l2cc_mutex(struct thread_ecall_args *args)
 		args->a0 = OPTEE_SMC_RETURN_OK;
 }
 
-static void tee_entry_exchange_capabilities(struct thread_ecall_args *args)
+static void tee_entry_exchange_capabilities(struct thread_smc_args *args)
 {
 	bool dyn_shm_en __maybe_unused = false;
 
@@ -112,7 +112,7 @@ static void tee_entry_exchange_capabilities(struct thread_ecall_args *args)
 	args->a3 = THREAD_RPC_MAX_NUM_PARAMS;
 }
 
-static void tee_entry_disable_shm_cache(struct thread_ecall_args *args)
+static void tee_entry_disable_shm_cache(struct thread_smc_args *args)
 {
 	uint64_t cookie;
 
@@ -131,7 +131,7 @@ static void tee_entry_disable_shm_cache(struct thread_ecall_args *args)
 	args->a2 = cookie;
 }
 
-static void tee_entry_enable_shm_cache(struct thread_ecall_args *args)
+static void tee_entry_enable_shm_cache(struct thread_smc_args *args)
 {
 	if (thread_enable_prealloc_rpc_cache())
 		args->a0 = OPTEE_SMC_RETURN_OK;
@@ -139,7 +139,7 @@ static void tee_entry_enable_shm_cache(struct thread_ecall_args *args)
 		args->a0 = OPTEE_SMC_RETURN_EBUSY;
 }
 
-static void tee_entry_boot_secondary(struct thread_ecall_args *args)
+static void tee_entry_boot_secondary(struct thread_smc_args *args)
 {
 #if defined(CFG_BOOT_SECONDARY_REQUEST)
 	if (!boot_core_release(args->a1, (paddr_t)(args->a3)))
@@ -151,14 +151,14 @@ static void tee_entry_boot_secondary(struct thread_ecall_args *args)
 #endif
 }
 
-static void tee_entry_get_thread_count(struct thread_ecall_args *args)
+static void tee_entry_get_thread_count(struct thread_smc_args *args)
 {
 	args->a0 = OPTEE_SMC_RETURN_OK;
 	args->a1 = CFG_NUM_THREADS;
 }
 
 #if defined(CFG_VIRTUALIZATION)
-static void tee_entry_vm_created(struct thread_ecall_args *args)
+static void tee_entry_vm_created(struct thread_smc_args *args)
 {
 	uint16_t guest_id = args->a1;
 
@@ -174,7 +174,7 @@ static void tee_entry_vm_created(struct thread_ecall_args *args)
 		args->a0 = OPTEE_SMC_RETURN_OK;
 }
 
-static void tee_entry_vm_destroyed(struct thread_ecall_args *args)
+static void tee_entry_vm_destroyed(struct thread_smc_args *args)
 {
 	uint16_t guest_id = args->a1;
 
@@ -192,12 +192,12 @@ static void tee_entry_vm_destroyed(struct thread_ecall_args *args)
 #endif
 
 /* Note: this function is weak to let platforms add special handling */
-void __weak tee_entry_fast(struct thread_ecall_args *args)
+void __weak tee_entry_fast(struct thread_smc_args *args)
 {
 	__tee_entry_fast(args);
 }
 
-static void get_async_notif_value(struct thread_ecall_args *args)
+static void get_async_notif_value(struct thread_smc_args *args)
 {
 	bool value_valid = false;
 	bool value_pending = false;
@@ -215,9 +215,9 @@ static void get_async_notif_value(struct thread_ecall_args *args)
  * If tee_entry_fast() is overridden, it's still supposed to call this
  * function.
  */
-void __tee_entry_fast(struct thread_ecall_args *args)
+void __tee_entry_fast(struct thread_smc_args *args)
 {
-	switch (args->a0) {
+	switch (args->a6) {
 
 	/* Generic functions */
 	case OPTEE_SMC_CALLS_COUNT:
@@ -306,12 +306,12 @@ size_t tee_entry_generic_get_api_call_count(void)
 	return ret;
 }
 
-void __weak tee_entry_get_api_call_count(struct thread_ecall_args *args)
+void __weak tee_entry_get_api_call_count(struct thread_smc_args *args)
 {
 	args->a0 = tee_entry_generic_get_api_call_count();
 }
 
-void __weak tee_entry_get_api_uuid(struct thread_ecall_args *args)
+void __weak tee_entry_get_api_uuid(struct thread_smc_args *args)
 {
 	args->a0 = OPTEE_MSG_UID_0;
 	args->a1 = OPTEE_MSG_UID_1;
@@ -319,13 +319,13 @@ void __weak tee_entry_get_api_uuid(struct thread_ecall_args *args)
 	args->a3 = OPTEE_MSG_UID_3;
 }
 
-void __weak tee_entry_get_api_revision(struct thread_ecall_args *args)
+void __weak tee_entry_get_api_revision(struct thread_smc_args *args)
 {
 	args->a0 = OPTEE_MSG_REVISION_MAJOR;
 	args->a1 = OPTEE_MSG_REVISION_MINOR;
 }
 
-void __weak tee_entry_get_os_uuid(struct thread_ecall_args *args)
+void __weak tee_entry_get_os_uuid(struct thread_smc_args *args)
 {
 	args->a0 = OPTEE_MSG_OS_OPTEE_UUID_0;
 	args->a1 = OPTEE_MSG_OS_OPTEE_UUID_1;
@@ -333,7 +333,7 @@ void __weak tee_entry_get_os_uuid(struct thread_ecall_args *args)
 	args->a3 = OPTEE_MSG_OS_OPTEE_UUID_3;
 }
 
-void __weak tee_entry_get_os_revision(struct thread_ecall_args *args)
+void __weak tee_entry_get_os_revision(struct thread_smc_args *args)
 {
 	args->a0 = CFG_OPTEE_REVISION_MAJOR;
 	args->a1 = CFG_OPTEE_REVISION_MINOR;

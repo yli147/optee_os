@@ -34,7 +34,7 @@
 #include <trace.h>
 #include <utee_defines.h>
 #include <util.h>
-
+#include <sm/optee_smc.h>
 #include <platform_config.h>
 
 #if defined(CFG_WITH_VFP)
@@ -184,7 +184,7 @@ static void init_asan(void)
 }
 #endif /*CFG_CORE_SANITIZE_KADDRESS*/
 
-static void init_runtime(unsigned long pageable_part __unused)
+static void init_runtime(void)
 {
 	init_asan();
 
@@ -854,7 +854,7 @@ void init_tee_runtime(void)
 	call_initcalls();
 }
 
-static void init_primary(unsigned long pageable_part, unsigned long nsec_entry)
+static void init_primary(unsigned long nsec_entry)
 {
 	thread_init_core_local_stacks();
 	/*
@@ -874,7 +874,7 @@ static void init_primary(unsigned long pageable_part, unsigned long nsec_entry)
 	 * things set by init_runtime()).
 	 */
 	thread_get_core_local()->curr_thread = 0;
-	init_runtime(pageable_part);
+	init_runtime();
 
 	if (IS_ENABLED(CFG_VIRTUALIZATION)) {
 		/*
@@ -957,16 +957,12 @@ static void init_secondary_helper(unsigned long nsec_entry)
  * Note: this function is weak just to make it possible to exclude it from
  * the unpaged area so that it lies in the init area.
  */
-void __weak boot_init_primary_early(unsigned long pageable_part,
+void __weak boot_init_primary_early(unsigned long pageable_part __maybe_unused,
 				    unsigned long nsec_entry __maybe_unused)
 {
 	unsigned long e = PADDR_INVALID;
 
-#if !defined(CFG_WITH_ARM_TRUSTED_FW)
-	e = nsec_entry;
-#endif
-
-	init_primary(pageable_part, e);
+	init_primary(e);
 }
 
 #if defined(CFG_WITH_ARM_TRUSTED_FW)

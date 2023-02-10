@@ -1,13 +1,11 @@
 srcs-$(CFG_WITH_USER_TA) += ldelf_loader.c
-srcs-y += tee_time.c
 srcs-y += otp_stubs.c
 srcs-y += delay.c
 srcs-y += idle.c
 srcs-y += sbi.c
 srcs-y += console.c
 # srcs-$(CFG_SECURE_TIME_SOURCE_CNTPCT) += tee_time_arm_cntpct.c
-# srcs-$(CFG_SECURE_TIME_SOURCE_REE) += tee_time_ree.c
-# srcs-y += timer_a64.c
+srcs-$(CFG_RISCV_TIME_SOURCE_RDTIME) += tee_time_rdtime.c
 
 srcs-y += spinlock.S
 

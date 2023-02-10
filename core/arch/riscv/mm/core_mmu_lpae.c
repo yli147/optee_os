@@ -251,21 +251,24 @@ static uint32_t desc_to_mattr(unsigned level, uint64_t desc)
 			return 0;
 		
 		mattr |= TEE_MATTR_VALID_BLOCK;
-		if (desc & PTE_R)
-			if (desc & PTE_U)
+		if (desc & PTE_U) {
+			if (desc & PTE_R)
 				mattr |= TEE_MATTR_UR;
-			else
-				mattr |= TEE_MATTR_PR;
-		if (desc& PTE_W)
-			if (desc & PTE_U)
+			if (desc & PTE_W)
 				mattr |= TEE_MATTR_UW;
-			else
-				mattr |= TEE_MATTR_PW;
-		if (desc & PTE_X)
-			if (desc & PTE_U)
+			if (desc & PTE_X)
 				mattr |= TEE_MATTR_UX;
-			else
-				mattr |= TEE_MATTR_PX;			
+		} else {
+			if (desc & PTE_R)
+				mattr |= TEE_MATTR_PR;
+			if (desc & PTE_W)
+				mattr |= TEE_MATTR_PW;
+			if (desc & PTE_X)
+				mattr |= TEE_MATTR_PX;
+		}
+
+		if (desc & PTE_G)
+			mattr |= TEE_MATTR_GLOBAL;
 	} else {
 		if (DESC_IS_TABLE(desc))
 			mattr |= TEE_MATTR_TABLE;
@@ -316,76 +319,31 @@ static uint32_t desc_to_mattr(unsigned level, uint64_t desc)
 
 static uint64_t mattr_to_desc(unsigned level, uint32_t attr)
 {
-	uint64_t desc;
-	uint32_t a = attr;
+	uint64_t desc = 0;
 
-	if (a & TEE_MATTR_TABLE)
+	if (attr & TEE_MATTR_TABLE)
 		return PTE_V;
 
-	if (!(a & TEE_MATTR_VALID_BLOCK))
-		return 0;
+	if (attr & TEE_MATTR_VALID_BLOCK)
+		desc |= PTE_V;
 
-	if (a & (TEE_MATTR_PX | TEE_MATTR_PW))
-		a |= TEE_MATTR_PR;
-	if (a & (TEE_MATTR_UX | TEE_MATTR_UW))
-		a |= TEE_MATTR_UR;
-	/*if (a & TEE_MATTR_UR)
-		a |= TEE_MATTR_PR;
-	if (a & TEE_MATTR_UW)
-		a |= TEE_MATTR_PW;*/
-	desc = PTE_V;
-	if (a & (TEE_MATTR_PR | TEE_MATTR_UR))
+	if (attr & TEE_MATTR_UR)
+		desc |= (PTE_R | PTE_U);
+	if (attr & TEE_MATTR_UW)
+		desc |= (PTE_W | PTE_U);
+	if (attr & TEE_MATTR_UX)
+		desc |= (PTE_X | PTE_U);
+
+	if (attr & TEE_MATTR_PR)
 		desc |= PTE_R;
-	if (a & (TEE_MATTR_PW | TEE_MATTR_UW))
+	if (attr & TEE_MATTR_PW)
 		desc |= PTE_W;
-	if (a & (TEE_MATTR_PX | TEE_MATTR_UX))
+	if (attr & TEE_MATTR_PX)
 		desc |= PTE_X;
-#if 0
-	if (!(a & (TEE_MATTR_PX | TEE_MATTR_UX)))
-		desc |= UPPER_ATTRS(XN);
-	if (!(a & TEE_MATTR_PX))
-		desc |= UPPER_ATTRS(PXN);
 
-	if (a & TEE_MATTR_UR)
-		desc |= LOWER_ATTRS(AP_UNPRIV);
+	if (attr & TEE_MATTR_GLOBAL)
+		desc |= PTE_G;
 
-	if (!(a & TEE_MATTR_PW))
-		desc |= LOWER_ATTRS(AP_RO);
-
-	if (feat_bti_is_implemented() && (a & TEE_MATTR_GUARDED))
-		desc |= GP;
-
-	/* Keep in sync with core_mmu.c:core_mmu_mattr_is_ok */
-	switch ((a >> TEE_MATTR_MEM_TYPE_SHIFT) & TEE_MATTR_MEM_TYPE_MASK) {
-	case TEE_MATTR_MEM_TYPE_STRONGLY_O:
-		desc |= LOWER_ATTRS(ATTR_DEVICE_nGnRnE_INDEX | OSH);
-		break;
-	case TEE_MATTR_MEM_TYPE_DEV:
-		desc |= LOWER_ATTRS(ATTR_DEVICE_nGnRE_INDEX | OSH);
-		break;
-	case TEE_MATTR_MEM_TYPE_CACHED:
-		desc |= LOWER_ATTRS(ATTR_IWBWA_OWBWA_NTR_INDEX | ISH);
-		break;
-	case TEE_MATTR_MEM_TYPE_TAGGED:
-		desc |= LOWER_ATTRS(ATTR_TAGGED_NORMAL_MEM_INDEX | ISH);
-		break;
-	default:
-		/*
-		 * "Can't happen" the attribute is supposed to be checked
-		 * with core_mmu_mattr_is_ok() before.
-		 */
-		panic();
-	}
-
-	if (a & (TEE_MATTR_UR | TEE_MATTR_PR))
-		desc |= LOWER_ATTRS(ACCESS_FLAG);
-
-	if (!(a & TEE_MATTR_GLOBAL))
-		desc |= LOWER_ATTRS(NON_GLOBAL);
-
-	desc |= a & TEE_MATTR_SECURE ? 0 : LOWER_ATTRS(NS);
-
-#endif
 	return desc;
 }
 
@@ -780,7 +738,7 @@ void core_mmu_set_entry_primitive(void *table, size_t level, size_t idx,
 	uint64_t desc = mattr_to_desc(level, attr);
 
 	tbl[idx] = desc | (pa >> 12 << 10);
-	if (level == 3)
+	if (!DESC_IS_TABLE(desc))
 		tbl[idx] |= PTE_A | PTE_D;
 }
 
@@ -889,6 +847,7 @@ void core_mmu_set_user_map(struct core_mmu_user_map *map)
 	// tlbi_all();
 	// icache_inv_all();
 	flush_tlb();
+	asm volatile("fence.i");
 
 	thread_unmask_exceptions(exceptions);
 }

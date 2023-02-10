@@ -19,57 +19,46 @@
 	 * Setup sp to point to the top of the tmp stack for the current CPU:
 	 * sp is assigned stack_tmp + cpu_id * stack_tmp_stride
 	 */
-.macro set_sp
-	/* Unsupported CPU, park it before it breaks something */
-	/*suppose this is core0*/
-	/*li	t1, CFG_TEE_CORE_NB_CORE
-	csrr	t0, CSR_MHARTID
-	bge	t0, t1, unhandled_cpu*/
-	li  t0, 0
-	la	t2, stack_tmp
-	lw	t1, stack_tmp_stride
+.macro set_sp hartid_reg
+	mv t0, \hartid_reg
+	li t1, CFG_TEE_CORE_NB_CORE
+	bge t0, t1, unhandled_cpu
+	lw t1, stack_tmp_stride
+	la t2, stack_tmp
+	mv sp, t2
+	mul t2, t1, t0
+	add sp, sp, t2
+.endm
 	/*
-	 * t0 is core pos
-	 * t1 is value of stack_tmp_stride
-	 * t2 is value of stack_tmp
+	 * Setup tp to point to &thread_core_local[cur hartid],
+	 * save current hart id to current thread_core_local hartid field
 	 */
-	mul  t3, t0, t1
-	add  sp, t2, t3
-.endm
-
-.macro set_tp
-	li	a0, THREAD_CORE_LOCAL_SIZE
-	csrr	a1, CSR_MHARTID
+.macro set_tp hartid_reg
+	mv	t0, \hartid_reg
+	li	t1, THREAD_CORE_LOCAL_SIZE
 	la	tp, thread_core_local
-	mv	a2, a0
-	li	a0, 0
-1:
-	andi	a3, a1, 1
-	beqz	a3, 2f
-	add	a0, a0, a2
-2:
-	srli	a1, a1, 1
-	slli	a2, a2, 1
-	bnez	a1, 1b
-	add	tp, tp, a0
+	mul	t2, t1, t0
+	add	tp, tp, t2
+	sw	t0, THREAD_CORE_LOCAL_HART_ID(tp)
 .endm
 
+/*
+ * a0:hardid of running optee os
+ * a1:optee os size, useless
+ * a2:dts address
+ */
 
 FUNC _start , :
-	li a0, 0x41200000
-	li a1, 0x49000000
-	mv	s1, a0		/* Save pagable part address */
+	mv	s1, a0 /* save hardid to s1 */
 #if defined(CFG_DT_ADDR)
 	ldr s2, =CFG_DT_ADDR
 #else
-	mv	s2, a2		/* Save DT address */
+	mv	s2, a2 /* save dts address to s2 */
 #endif
 
 	la	a0, reset_vect_table
-	csrw stvec, a0
-	//isb
+	csrw	stvec, a0
 	fence
-
 	/*
 	 * Clear .bss, this code obviously depends on the linker keeping
 	 * start/end of .bss at least 8 byte aligned.
@@ -81,13 +70,10 @@ clear_bss:
 	add	a0, a0, 8
 	blt	a0, a1, clear_bss
 
-	/* Setup SP_EL0 and SP_EL1, SP will be set to SP_EL0 */
-	set_sp
-
+	/* Setup sp, tp, s1 is current hartid */
+	set_sp	s1
+	set_tp	s1
 	jal	thread_init_thread_core_local
-
-	/* Enable aborts now that we can receive exceptions */
-	//msr	daifclr, #DAIFBIT_ABT
 
 	/*
 	 * Invalidate dcache for all memory used during initialization to
@@ -105,15 +91,11 @@ clear_bss:
 
 	li	a0, 0
 	la	a1, boot_mmu_config
-	jal core_init_mmu_map
+	jal	core_init_mmu_map
 
-	//jal	__get_core_pos
-	/* boot hard id suppose as zero*/
-	li  a0, 0
-	jal enable_mmu
+	mv	a0, s1
+	jal	enable_mmu
 
-	mv	a0, s1		/* pagable part address */
-	li	a1, -1
 	jal	boot_init_primary_early
 
 	mv	a0, s2		/* DT address */
@@ -132,7 +114,7 @@ clear_bss:
 	 * next entry. Matches the thread_init_boot_thread in
 	 * boot.c.
 	 */
-	jal 	thread_clr_boot_thread
+	jal	thread_clr_boot_thread
 
 	/*
 	 * Pass the vector address returned from main_init
@@ -140,15 +122,14 @@ clear_bss:
 	 * called with MMU off.
 	 * CORE_MMU_CONFIG_LOAD_OFFSET = 16
 	 */
-	la  s1, boot_mmu_config
-	ld	a0, 16(s1)
+	la  	s3, boot_mmu_config
+	ld	a0, 16(s3)
 	la	a1, thread_vector_table
 	sub	a1, a1, a0
-	li	a0, TEESMC_OPTEED_RETURN_ENTRY_DONE
+	li	a6, TEESMC_OPTEED_RETURN_ENTRY_DONE
+	li 	a7, 0x4F505445
 	ecall
-	fence.i
 	/* ecall should not return */
-	j .	
 END_FUNC _start
 DECLARE_KEEP_INIT _start
 
@@ -157,14 +138,6 @@ DECLARE_KEEP_INIT _start
 LOCAL_DATA cached_mem_end , :
 	.skip	8
 END_DATA cached_mem_end
-
-
-/* size_t __get_core_pos(void); */
-FUNC __get_core_pos , : , .identity_map
-/*only for debug*/
-	li 	a0, 0
-	ret
-END_FUNC __get_core_pos
 
 /*
  * void enable_mmu(unsigned long core_pos);
@@ -182,36 +155,35 @@ LOCAL_FUNC enable_mmu , : , .identity_map
 	 * a4 = load_offset
 	 */
 	la	a1, boot_mmu_config
-	ld  a2, 0(a1)
-	ld  a3, 8(a1)
-	ld  a4, 16(a1)
+	ld	a2, 0(a1)
+	ld	a3, 8(a1)
+	ld	a4, 16(a1)
 	/*
 	 * ttbr = ttbr_base + ttbr_core_offset * core_pos
 	 * a5 = ttbr
 	 */
 	mul	a5, a0, a3
-	add a5, a5, a2
+	add	a5, a5, a2
 
 	/* Compute satp for page tables, but don't load it yet */
-	srl a6, a5, 12
-	li a7, SATP_MODE_SV39
-	sll a7, a7, 60
-	or a6, a6, a7
+	srl	a6, a5, 12
+	li	a7, SATP_MODE_SV39
+	sll	a7, a7, 60
+	or	a6, a6, a7
 
 	/* Update stvec */
-	csrr a7, stvec
+	csrr 	a7, stvec
 	add	a7, a7, a4
-	csrw stvec, a7
+	csrw 	stvec, a7
 
 	/* Adjust stack pointers and return address */
-	add sp, sp, a4
-	add ra, ra, a4
-
-	sfence.vma zero, zero
+	add	sp, sp, a4
+	add	ra, ra, a4
+	fence
 	fence.i
 	/* Enable the MMU */
-	csrw satp, a6
-	sfence.vma zero, zero
+	csrw	satp, a6
+	sfence.vma
 	ret
 END_FUNC enable_mmu
 
@@ -227,14 +199,15 @@ FUNC cpu_on_handler , :
 	mv	s3, ra
 
 	la	a0, reset_vect_table
-	csrw stvec, a0
+	csrw	stvec, a0
 	fence
 
 	jal	__get_core_pos
 	jal	enable_mmu
 
 	/* Setup SP_EL0 and SP_EL1, SP will be set to SP_EL0 */
-	set_sp
+	jal	__get_core_pos
+	set_sp	a0
 
 	mv	a0, s1
 	mv	a1, s2
@@ -256,5 +229,5 @@ END_DATA stack_tmp_rel
 	.align	11
 LOCAL_FUNC reset_vect_table , :, .identity_map, , nobti
 	wfi
-	j .
+	j	.
 END_FUNC reset_vect_table

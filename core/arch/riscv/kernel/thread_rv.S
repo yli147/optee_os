@@ -10,152 +10,298 @@
 #include <kernel/thread_private.h>
 #include <mm/core_mmu.h>
 #include <riscv.h>
+#include <riscv_macros.S>
 
-.section .data
-.balign 4
-.equ TRAP_MODE_CORE, 0
-.equ TRAP_MODE_USER, 1
+.macro get_thread_ctx res, tmp0
+	lw	\tmp0, THREAD_CORE_LOCAL_CURR_THREAD(tp)
+	la	\res, threads
+1:
+	beqz	\tmp0, 2f
+	addi	\res, \res, THREAD_CTX_SIZE
+	addi	\tmp0, \tmp0, -1
+	bnez	\tmp0, 1b
+2:
+.endm
 
 .macro save_regs, mode
-	addi	sp, sp, -RISCV_TFRAME_SIZE
+	addi	sp, sp, -THREAD_TRAP_REGS_SIZE
 .if \mode == TRAP_MODE_USER
-	STR	tp, RISCV_TFRAME_TP(sp)
-	LDR	tp, (RISCV_TFRAME_SIZE - RISCV_XLEN_BYTES)(sp)
-	STR	gp, RISCV_TFRAME_GP(sp)
-	csrrw	gp, CSR_MSCRATCH, zero
-	STR	gp, RISCV_TFRAME_SP(sp)
-.endif
-#ifdef RV64
-	STR	t6, RISCV_TFRAME_T6(sp)
-	STR	t5, RISCV_TFRAME_T5(sp)
-	STR	t4, RISCV_TFRAME_T4(sp)
-	STR	t3, RISCV_TFRAME_T3(sp)
-	STR	a7, RISCV_TFRAME_A7(sp)
-	STR	a6, RISCV_TFRAME_A6(sp)
+
+	/* Save user thread pointer and load kernel thread pointer */
+	store_xregs	sp, THREAD_TRAP_REG_TP, 4, 4
+	load_xregs	sp, (THREAD_TRAP_REGS_SIZE - RISCV_XLEN_BYTES), 4, 4
+
+	store_xregs	sp, THREAD_TRAP_REG_GP, 3, 3
+
+	/*
+	 * Set the scratch register to 0 such in case of a recursive
+	 * exception thread_trap_vect() knows that it is emitted from kernel.
+	 */
+	csrrw		gp, CSR_XSCRATCH, zero
+	store_xregs	sp, THREAD_TRAP_REG_SP, 3, 3
+#if 0
+.option push
+.option norelax
+	la		gp, __global_pointer$
+.option pop
 #endif
-	STR	t2, RISCV_TFRAME_T2(sp)
-	STR	t1, RISCV_TFRAME_T1(sp)
-	STR	t0, RISCV_TFRAME_T0(sp)
+.endif
 
-	STR	a5, RISCV_TFRAME_A5(sp)
-	STR	a4, RISCV_TFRAME_A4(sp)
-	STR	a3, RISCV_TFRAME_A3(sp)
-	STR	a2, RISCV_TFRAME_A2(sp)
-	STR	a1, RISCV_TFRAME_A1(sp)
-	STR	a0, RISCV_TFRAME_A0(sp)
-	STR	ra, RISCV_TFRAME_RA(sp)
+	store_xregs	sp, THREAD_TRAP_REG_T3, 28, 31
+	store_xregs	sp, THREAD_TRAP_REG_A6, 16, 17
+	store_xregs	sp, THREAD_TRAP_REG_T0, 5, 7
+	store_xregs	sp, THREAD_TRAP_REG_A0, 10, 15
 
-	csrr	t0, CSR_MSTATUS
-	STR	t0, RISCV_TFRAME_STATUS(sp)
-	csrr	a0, CSR_MCAUSE
-	csrr	a1, CSR_MEPC
-	STR	a1, RISCV_TFRAME_EPC(sp)
-	mv	a2, sp
-    /* a0 = CSR_MCAUSE
-     * a1 = CSR_MEPC
-     * a2 = sp
-     * thread_trap_handler(CSR_MCAUSE, CSR_MEPC, sp)
+	store_xregs	sp, THREAD_TRAP_REG_RA, 1, 1
+
+	csrr		t0, CSR_XSTATUS
+	store_xregs	sp, THREAD_TRAP_REG_STATUS, 5, 5
+
+	csrr		a0, CSR_XCAUSE
+	csrr		a1, CSR_XEPC
+
+	store_xregs	sp, THREAD_TRAP_REG_EPC, 11, 11
+
+	mv		a2, sp
+
+	/* a0 = cause
+	 * a1 = epc
+	 * a2 = sp
+	 * a3 = user
+	 * thread_trap_handler(cause, epc, sp, user)
 	 */
 .endm
 
 .macro restore_regs, mode
-	LDR	t0, RISCV_TFRAME_EPC(sp)
-	csrw	CSR_MEPC, t0
-	LDR	t0, RISCV_TFRAME_STATUS(sp)
-	csrw	CSR_MSTATUS, t0
 
-	LDR	ra, RISCV_TFRAME_RA(sp)
-	LDR	a0, RISCV_TFRAME_A0(sp)
-	LDR	a1, RISCV_TFRAME_A1(sp)
-	LDR	a2, RISCV_TFRAME_A2(sp)
-	LDR	a3, RISCV_TFRAME_A3(sp)
-	LDR	a4, RISCV_TFRAME_A4(sp)
-	LDR	a5, RISCV_TFRAME_A5(sp)
-	LDR	t0, RISCV_TFRAME_T0(sp)
-	LDR	t1, RISCV_TFRAME_T1(sp)
-	LDR	t2, RISCV_TFRAME_T2(sp)
-#ifdef RV64
-	LDR	a6, RISCV_TFRAME_A6(sp)
-	LDR	a7, RISCV_TFRAME_A7(sp)
-	LDR	t3, RISCV_TFRAME_T3(sp)
-	LDR	t4, RISCV_TFRAME_T4(sp)
-	LDR	t5, RISCV_TFRAME_T5(sp)
-	LDR	t6, RISCV_TFRAME_T6(sp)
-#endif
+	load_xregs	sp, THREAD_TRAP_REG_EPC, 5, 5
+
+	csrw		CSR_XEPC, t0
+
+	load_xregs	sp, THREAD_TRAP_REG_STATUS, 5, 5
+	csrw		CSR_XSTATUS, t0
+
+	load_xregs	sp, THREAD_TRAP_REG_RA, 1, 1
+
+	load_xregs	sp, THREAD_TRAP_REG_A0, 10, 15
+	load_xregs	sp, THREAD_TRAP_REG_T0, 5, 7
+
+	load_xregs	sp, THREAD_TRAP_REG_A6, 16, 17
+	load_xregs	sp, THREAD_TRAP_REG_T3, 28, 31
+
 .if \mode == TRAP_MODE_USER
-	addi	gp, sp, RISCV_TFRAME_SIZE
-	STR	tp, REGOFF(-1)(gp)
-	csrw	CSR_MSCRATCH, gp
+	addi		gp, sp, THREAD_TRAP_REGS_SIZE
+	store_xregs	gp, REGOFF(-1), 4, 4
+	csrw		CSR_XSCRATCH, gp
 
-	LDR	tp, RISCV_TFRAME_TP(sp)
-	LDR	gp, RISCV_TFRAME_GP(sp)
-	LDR	sp, RISCV_TFRAME_SP(sp)
+	load_xregs	sp, THREAD_TRAP_REG_TP, 4, 4
+	load_xregs	sp, THREAD_TRAP_REG_GP, 3, 3
+	load_xregs	sp, THREAD_TRAP_REG_SP, 2, 2
+
 .else
-	addi	sp, sp, RISCV_TFRAME_SIZE
+	addi		sp, sp, THREAD_TRAP_REGS_SIZE
 .endif
 .endm
 
+/* size_t __get_core_pos(void); */
+FUNC __get_core_pos , : , .identity_map
+	lw		a0, THREAD_CORE_LOCAL_HART_ID(tp)
+	ret
+END_FUNC __get_core_pos
+
 FUNC thread_trap_vect , :
-	csrrw	sp, CSR_SSCRATCH, sp
-	bnez	sp, _trap_from_user
-	csrrw	sp, CSR_SSCRATCH, sp
-	j	trap_from_core
-_trap_from_user:
-	j	trap_from_user
+	csrrw		sp, CSR_XSCRATCH, sp
+	bnez		sp, 0f
+	csrrw		sp, CSR_XSCRATCH, sp
+	j		trap_from_kernel
+0:
+	j		trap_from_user
 thread_trap_vect_end:
 END_FUNC thread_trap_vect
 
-LOCAL_FUNC trap_from_core, :
-	save_regs	TRAP_MODE_CORE
-	li	a3, 1
-	jal	thread_trap_handler
-	restore_regs	TRAP_MODE_CORE
-	sret
-END_FUNC trap_from_core
+LOCAL_FUNC trap_from_kernel, :
+	save_regs	TRAP_MODE_KERNEL
+	li		a3, 0
+	jal		thread_trap_handler
+	restore_regs	TRAP_MODE_KERNEL
+	XRET
+END_FUNC trap_from_kernel
 
 LOCAL_FUNC trap_from_user, :
 	save_regs	TRAP_MODE_USER
-	li	a3, 0
-	jal	thread_trap_handler
+	li		a3, 1
+	jal		thread_trap_handler
 	restore_regs	TRAP_MODE_USER
-	sret
+	XRET
 END_FUNC trap_from_user
+
+/*
+ * void thread_unwind_user_mode(uint32_t ret, uint32_t exit_status0,
+ * 		uint32_t exit_status1);
+ * See description in thread.h
+ */
+FUNC thread_unwind_user_mode , :
+	/* Store the exit status,a3,a4,a5 as temp reg
+	 * a3 hold thread ctx
+	 * a4 hold exit_status0 address
+	 * a5 hold exit_status1 address
+	 */
+	load_xregs	sp, THREAD_USER_MODE_REC_CTX_REGS_PTR, 13, 15
+
+	sw		a1, (a4)
+	sw		a2, (a5)
+
+	/* Save user callee registers */
+	store_xregs	a3, THREAD_CTX_REG_S0, 8, 9
+	store_xregs	a3, THREAD_CTX_REG_S2, 18, 27
+	store_xregs	a3, THREAD_CTX_REG_SP, 2, 4
+
+	/* Restore gp registers */
+	mv		a1, sp
+	load_xregs	a1, THREAD_USER_MODE_REC_RA, 1, 4
+	load_xregs	a1, THREAD_USER_MODE_REC_S0, 8, 9
+	load_xregs	a1, THREAD_USER_MODE_REC_S2, 18, 27
+	add		sp, sp, THREAD_USER_MODE_REC_SIZE
+
+	/*
+	 * Zeroize xSCRATCH to indicate to thread_trap_vect() that
+	 * we are executing in kernel.
+	 */
+	csrw		CSR_XSCRATCH, zero
+
+	/* Return from the call of thread_enter_user_mode() */
+	ret
+END_FUNC thread_unwind_user_mode
+
+/*
+ * void thread_exit_user_mode(unsigned long a0, unsigned long a1,
+ *                 unsigned long a2, unsigned long a3,
+ *                 unsigned long sp, unsigned long pc,
+ *                 unsigned long status);
+ */
+
+FUNC thread_exit_user_mode , :
+    /* Set kernel stack pointer */
+    mv  sp, a4
+
+    /* Set xSTATUS */
+    csrw    CSR_XSTATUS, a6
+
+    /* Set return address thread_unwind_user_mode() */
+    mv  ra, a5
+    ret
+END_FUNC thread_exit_user_mode
 
 /*
  * uint32_t __thread_enter_user_mode(struct thread_ctx_regs *regs,
  *				     uint32_t *exit_status0,
  *				     uint32_t *exit_status1);
- *
- * This function depends on being called with exceptions masked.
  */
 FUNC __thread_enter_user_mode , :
+	/*
+	 * Create and fill in the struct thread_user_mode_rec
+	 * before enter into user mode, save state for tee kernel back
+	 */
+	addi		sp, sp, -THREAD_USER_MODE_REC_SIZE
 
-	LDR	sp, RISCV_CTX_REG_SP(a0)
+	store_xregs	sp, THREAD_USER_MODE_REC_CTX_REGS_PTR, 10, 12
+	store_xregs	sp, THREAD_USER_MODE_REC_RA, 1, 4
+	store_xregs	sp, THREAD_USER_MODE_REC_S0, 8, 9
+	store_xregs	sp, THREAD_USER_MODE_REC_S2, 18, 27
+	/*
+	 * get pointer to current thread context
+	 */
+	get_thread_ctx	s0, s1
 
-	LDR	t0, RISCV_CTX_REG_RA(a0)
-	csrw	sepc, t0
+	/*
+	 * Save kernel stack pointer to ensure that
+	 * thread_exit_user_mode() uses correct stack pointer.
+	 */
 
-	LDR	t1, RISCV_CTX_REG_STATUS(a0)
-	csrw	sstatus, t1
+	store_xregs	s0, THREAD_CTX_KERN_SP, 2, 2
 
-	mv t0,	a2
-	mv t1,	a3
+	/*
+	 * Save the values for a0 and a1 in struct thread_core_local to be
+	 * restored later just before the xret.
+	 */
 
-	LDR	a1, RISCV_CTX_REG_A1(a0)
-	LDR	a2, RISCV_CTX_REG_A2(a0)
-	LDR	a3, RISCV_CTX_REG_A3(a0)
-	LDR	a4, RISCV_CTX_REG_A4(a0)
-	LDR	a5, RISCV_CTX_REG_A5(a0)
-#ifdef RV64
-	LDR	a6, RISCV_CTX_REG_A6(a0)
-	LDR	a7, RISCV_CTX_REG_A7(a0)
-#endif
-	LDR	a0, RISCV_CTX_REG_A0(a0)
+	load_xregs	a0, THREAD_CTX_REG_A0, 8, 9
+	store_xregs	tp, THREAD_CORE_LOCAL_R0, 8, 9
 
-	sret
+	/*
+	 * Save kernel stack pointer in xSCRATCH to ensure that
+	 * thread_trap_vect() uses correct stack pointer.
+	 */
 
+	csrw		CSR_XSCRATCH, sp
+
+	/*
+	 * Save kernel thread pointer below of the kernel stack pointer
+	 * to enure that thread_trap_vect() uses correct tp when traps
+	 * come from user.
+	 */
+	store_xregs	sp, REGOFF(-1), 4, 4
+
+	/*
+	 * Initialize xstatus, xepc, and user sp to enter user mode
+	 */
+
+	/* Set exception program counter */
+	load_xregs	a0, THREAD_CTX_REG_EPC, 8, 8
+	csrw		CSR_XEPC, s0
+
+	/* Set user status */
+	load_xregs	a0, THREAD_CTX_REG_STATUS, 8, 8
+	csrw		CSR_XSTATUS, s0
+
+	/* Set user stack pointer */
+	load_xregs	a0, THREAD_CTX_REG_SP, 2, 2
+
+	/* Load the rest of the general purpose registers */
+	load_xregs	a0, THREAD_CTX_REG_A1, 11, 15
+	load_xregs	a0, THREAD_CTX_REG_T0, 5, 7
+	load_xregs	a0, THREAD_CTX_REG_A6, 16, 17
+	load_xregs	a0, THREAD_CTX_REG_T3, 28, 31
+	load_xregs	a0, THREAD_CTX_REG_A0, 10, 10
+
+	/* zeroize callee registers */
+	mv		s0, x0
+	mv		s1, x0
+	mv		s2, x0
+	mv		s3, x0
+	mv		s4, x0
+	mv		s5, x0
+	mv		s6, x0
+	mv		s7, x0
+	mv		s8, x0
+	mv		s9, x0
+	mv		s10, x0
+	mv		s11, x0
+
+	mv		ra, x0
+	mv		gp, x0
+	mv		tp, x0
+
+	/* Jump into user mode */
+	XRET
 END_FUNC __thread_enter_user_mode
 
-FUNC thread_resume , :
 
+/* void thread_resume(struct thread_ctx_regs *regs) */
+FUNC thread_resume , :
+	load_xregs	a0, THREAD_CTX_REG_EPC, 5, 5
+	csrw		sepc,	t0
+	load_xregs	a0, THREAD_CTX_REG_STATUS, 5, 5
+	or		t0, t0, 0x100
+	csrw		sstatus,	t0
+	load_xregs	a0, THREAD_CTX_REG_SP, 2, 2
+	load_xregs	a0, THREAD_CTX_REG_RA, 1, 1
+	load_xregs	a0, THREAD_CTX_REG_A1, 11, 15
+	load_xregs	a0, THREAD_CTX_REG_T0, 5, 7
+	load_xregs	a0, THREAD_CTX_REG_A6, 16, 17
+	load_xregs	a0, THREAD_CTX_REG_T3, 28, 31
+	load_xregs 	a0, THREAD_CTX_REG_S0, 8, 9
+	load_xregs 	a0, THREAD_CTX_REG_S2, 18, 27
+	load_xregs	a0, THREAD_CTX_REG_A0, 10, 10
+	sret
 END_FUNC thread_resume

@@ -162,7 +162,7 @@ static TEE_Result user_ta_enter(struct ts_session *session,
 		init_utee_param(usr_params, ta_sess->param, param_va);
 	else
 		memset(usr_params, 0, sizeof(*usr_params));
-
+	DMSG("entry_func:%x\n",utc->uctx.entry_func);
 	res = thread_enter_user_mode(func, kaddr_to_uref(session),
 				     (vaddr_t)usr_params, cmd, usr_stack,
 				     utc->uctx.entry_func, utc->uctx.is_32bit,

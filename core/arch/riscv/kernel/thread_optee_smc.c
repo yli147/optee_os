@@ -27,7 +27,7 @@
 static bool thread_prealloc_rpc_cache;
 static unsigned int thread_rpc_pnum;
 
-void thread_handle_fast_smc(struct thread_ecall_args *args)
+void thread_handle_fast_smc(struct thread_smc_args *args)
 {
 	thread_check_canaries();
 
@@ -63,11 +63,11 @@ uint32_t thread_handle_std_smc(uint32_t a0, uint32_t a1, uint32_t a2,
 	 * on error. Successful return is done via thread_exit() or
 	 * thread_rpc().
 	 */
-	if (a0 == OPTEE_SMC_CALL_RETURN_FROM_RPC) {
-		thread_resume_from_rpc(a3, a1, a2, a4, a5);
+	if (a6 == OPTEE_SMC_CALL_RETURN_FROM_RPC) {
+		thread_resume_from_rpc(a2, a0, a1, a3, a4);
 		rv = OPTEE_SMC_RETURN_ERESUME;
 	} else {
-		thread_alloc_and_run(a0, a1, a2, a3, 0, 0);
+		thread_alloc_and_run(a6, a0, a1, a2, 0, 0);
 		rv = OPTEE_SMC_RETURN_ETHREAD_LIMIT;
 	}
 

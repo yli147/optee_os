@@ -52,6 +52,15 @@
 #define _JBTYPE long long
 #endif
 
+/*
+ * Callee preserved registers:
+  * s0-s11, ra, sp
+   */
+#if defined(RV64) || defined(RV32)
+#define _JBLEN 14
+#define _JBTYPE unsigned long
+#endif
+
 #ifdef _JBLEN
 typedef	_JBTYPE jmp_buf[_JBLEN];
 #endif

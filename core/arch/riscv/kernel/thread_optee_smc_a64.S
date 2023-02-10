@@ -3,8 +3,7 @@
  * Copyright (c) 2019, Linaro Limited
  */
 
-//#include <arm64_macros.S>
-//#include <arm.h>
+#include <riscv.h>
 #include <asm.S>
 #include <generated/asm-defines.h>
 #include <keep.h>
@@ -12,6 +11,7 @@
 #include <sm/optee_smc.h>
 #include <sm/teesmc_opteed.h>
 #include <sm/teesmc_opteed_macros.h>
+#include <riscv_macros.S>
 
 /*
  * If ASLR is configured the identity mapped code may be mapped at two
@@ -38,40 +38,39 @@ LOCAL_FUNC vector_std_smc_entry , : , .identity_map
 	 * return.
 	 */
 	mv	a1, a0
-	li	a0, TEESMC_OPTEED_RETURN_CALL_DONE
+	li	a6, TEESMC_OPTEED_RETURN_CALL_DONE
+	li	a7, 0x4F505445
 	ecall
 	/* ecall should not return */
-	//panic_at_smc_return
 END_FUNC vector_std_smc_entry
 
 LOCAL_FUNC vector_fast_smc_entry , : , .identity_map
 	readjust_pc
 	addi	sp, sp, -64
 	//store_xregs sp, THREAD_SMC_ARGS_X0, 0, 7
-	sd  a0, THREAD_ECALL_ARGS_A0(sp)
-	sd  a1, THREAD_ECALL_ARGS_A1(sp)
-	sd  a2, THREAD_ECALL_ARGS_A2(sp)
-	sd  a3, THREAD_ECALL_ARGS_A3(sp)
-	sd  a4, THREAD_ECALL_ARGS_A4(sp)
-	sd  a5, THREAD_ECALL_ARGS_A5(sp)
-	sd  a6, THREAD_ECALL_ARGS_A6(sp)
-	sd  a7, THREAD_ECALL_ARGS_A7(sp)	
+	sd  a0, THREAD_SMC_ARGS_A0(sp)
+	sd  a1, THREAD_SMC_ARGS_A1(sp)
+	sd  a2, THREAD_SMC_ARGS_A2(sp)
+	sd  a3, THREAD_SMC_ARGS_A3(sp)
+	sd  a4, THREAD_SMC_ARGS_A4(sp)
+	sd  a5, THREAD_SMC_ARGS_A5(sp)
+	sd  a6, THREAD_SMC_ARGS_A6(sp)
+//	sd  a7, THREAD_SMC_ARGS_A7(sp)	
 	mv	a0, sp
 	call thread_handle_fast_smc
 	//load_xregs sp, THREAD_SMC_ARGS_X0, 1, 8
-	ld  a1, THREAD_ECALL_ARGS_A0(sp)
-	ld  a2, THREAD_ECALL_ARGS_A1(sp)
-	ld  a3, THREAD_ECALL_ARGS_A2(sp)
-	ld  a4, THREAD_ECALL_ARGS_A3(sp)
-	ld  a5, THREAD_ECALL_ARGS_A4(sp)
-	ld  a6, THREAD_ECALL_ARGS_A5(sp)
-	ld  a7, THREAD_ECALL_ARGS_A6(sp)
+	ld  a1, THREAD_SMC_ARGS_A0(sp)
+	ld  a2, THREAD_SMC_ARGS_A1(sp)
+	ld  a3, THREAD_SMC_ARGS_A2(sp)
+	ld  a4, THREAD_SMC_ARGS_A3(sp)
+	ld  a5, THREAD_SMC_ARGS_A4(sp)
+//	ld  a6, THREAD_SMC_ARGS_A5(sp)
+//	ld  a7, THREAD_SMC_ARGS_A6(sp)
 	addi	sp, sp, 64
-	li	a0, TEESMC_OPTEED_RETURN_CALL_DONE
-	//smc	#0
+	li	a6, TEESMC_OPTEED_RETURN_CALL_DONE
+	li	a7, 0x4F505445
 	ecall
 	/* SMC should not return */
-	//panic_at_smc_return
 END_FUNC vector_fast_smc_entry
 
 LOCAL_FUNC vector_fiq_entry , : , .identity_map
@@ -80,20 +79,16 @@ LOCAL_FUNC vector_fiq_entry , : , .identity_map
 	call	thread_check_canaries
 	call	itr_core_handler
 	li	x0, TEESMC_OPTEED_RETURN_FIQ_DONE
-	//smc	#0
 	ecall
 	/* SMC should not return */
-	//panic_at_smc_return
 END_FUNC vector_fiq_entry
 
 LOCAL_FUNC vector_cpu_on_entry , : , .identity_map
 	call	cpu_on_handler
 	mv	a1, a0
 	li	a0, TEESMC_OPTEED_RETURN_ON_DONE
-//	smc	#0
 	ecall
 	/* SMC should not return */
-//	panic_at_smc_return
 END_FUNC vector_cpu_on_entry
 
 LOCAL_FUNC vector_cpu_off_entry , : , .identity_map
@@ -101,10 +96,8 @@ LOCAL_FUNC vector_cpu_off_entry , : , .identity_map
 	call	thread_cpu_off_handler
 	mv	a1, a0
 	li	a0, TEESMC_OPTEED_RETURN_OFF_DONE
-//	smc	#0
 	ecall
 	/* SMC should not return */
-//	panic_at_smc_return
 END_FUNC vector_cpu_off_entry
 
 LOCAL_FUNC vector_cpu_suspend_entry , : , .identity_map
@@ -112,10 +105,8 @@ LOCAL_FUNC vector_cpu_suspend_entry , : , .identity_map
 	call	thread_cpu_suspend_handler
 	mv	a1, a0
 	li	a0, TEESMC_OPTEED_RETURN_SUSPEND_DONE
-//	smc	#0
 	ecall
 	/* SMC should not return */
-//	panic_at_smc_return
 END_FUNC vector_cpu_suspend_entry
 
 LOCAL_FUNC vector_cpu_resume_entry , : , .identity_map
@@ -123,10 +114,8 @@ LOCAL_FUNC vector_cpu_resume_entry , : , .identity_map
 	call	thread_cpu_resume_handler
 	mv	a1, a0
 	li	a0, TEESMC_OPTEED_RETURN_RESUME_DONE
-//	smc	#0
 	ecall
 	/* SMC should not return */
-//	panic_at_smc_return
 END_FUNC vector_cpu_resume_entry
 
 LOCAL_FUNC vector_system_off_entry , : , .identity_map
@@ -134,10 +123,8 @@ LOCAL_FUNC vector_system_off_entry , : , .identity_map
 	call	thread_system_off_handler
 	mv	a1, a0
 	li	a0, TEESMC_OPTEED_RETURN_SYSTEM_OFF_DONE
-//	smc	#0
 	ecall
 	/* SMC should not return */
-//	panic_at_smc_return
 END_FUNC vector_system_off_entry
 
 LOCAL_FUNC vector_system_reset_entry , : , .identity_map
@@ -145,10 +132,8 @@ LOCAL_FUNC vector_system_reset_entry , : , .identity_map
 	call	thread_system_reset_handler
 	mv	a1, a0
 	li	a0, TEESMC_OPTEED_RETURN_SYSTEM_RESET_DONE
-//	smc	#0
 	ecall
-	/* SMC should not return */
-//	panic_at_smc_return
+	/* should not return */
 END_FUNC vector_system_reset_entry
 
 /*
@@ -176,67 +161,67 @@ FUNC thread_std_smc_entry , :
 	mv	s2, a0	/* Save return value for later */
 
 	/* Mask all maskable exceptions before switching to temporary stack */
-	//msr	daifset, #DAIFBIT_ALL	
-	/* clean riscv MIE of mstatus reg */
-	csrci   mstatus,8
+	//msr	daifset, #DAIFBIT_ALL
+	/* clean riscv SIE of sstatus reg */
+	csrci   sstatus,2
 	
 	call	thread_get_tmp_sp
 	mv	sp, a0
 
 	call	thread_state_free
 
-	li	a0, TEESMC_OPTEED_RETURN_CALL_DONE
 	mv	a1, s2
 	li	a2, 0
 	li	a3, 0
 	li	a4, 0
-//	smc	#0
+	li	a6, TEESMC_OPTEED_RETURN_CALL_DONE
+	li	a7, 0x4F505445
 	ecall
-	/* SMC should not return */
-//	panic_at_smc_return
+	/* should not return */
 END_FUNC thread_std_smc_entry
 
 /* void thread_rpc(uint32_t rv[THREAD_RPC_NUM_ARGS]) */
 FUNC thread_rpc , :
-#if 0
-	/* Read daif and create an SPSR */
-	mrs	x1, daif
-	orr	x1, x1, #(SPSR_64_MODE_EL1 << SPSR_64_MODE_EL_SHIFT)
+	li a1, 2
+	or a1, a1, 32
+	or a1, a1, 512
+	/*disable all maskable interrupt*/
+	csrc sie, a1
 
-	/* Mask all maskable exceptions before switching to temporary stack */
-	msr	daifset, #DAIFBIT_ALL
-	push	x0, xzr
-	push	x1, x30
-	bl	thread_get_ctx_regs
-	ldr	x30, [sp, #8]
-	store_xregs x0, THREAD_CTX_REGS_X19, 19, 30
-	mov	x19, x0
+	/*read sstatus to a1*/
+	csrr a1, sstatus
 
-	bl	thread_get_tmp_sp
-	pop	x1, xzr		/* Match "push x1, x30" above */
-	mov	x2, sp
-	str	x2, [x19, #THREAD_CTX_REGS_SP]
-	ldr	x20, [sp]	/* Get pointer to rv[] */
-	mov	sp, x0		/* Switch to tmp stack */
-	/*
-	 * We need to read rv[] early, because thread_state_suspend
-	 * can invoke virt_unset_guest() which will unmap pages,
-	 * where rv[] resides
-	 */
-	load_wregs x20, 0, 21, 23	/* Load rv[] into w20-w22 */
+	addi sp, sp, -(3*8)
+	sd ra, 0(sp)
+	sd a1, 8(sp)
+	sd a0, 16(sp)
+	call thread_get_ctx_regs
+	ld ra, 0(sp)
+	store_xregs a0, THREAD_CTX_REG_RA, 1, 1
+	store_xregs a0, THREAD_CTX_REG_S0, 8, 9
+	store_xregs a0, THREAD_CTX_REG_S2, 18, 27
 
-	la	x2, .thread_rpc_return
-	mv	a0, THREAD_FLAGS_COPY_ARGS_ON_RETURN
+	mv t0, a0
+	call thread_get_tmp_sp
+	ld a1, 8(sp)
+	ld t1, 16(sp) /* Get pointer to rv[] */
+	addi sp, sp, 2*8
+	sd sp, THREAD_CTX_REG_SP(t0)
+	mv sp, a0 /* Switch to tmp stack */
+	lw t2,0(t1)
+	lw t3,4(t1)
+	lw t4,8(t1)
+	la a2, .thread_rpc_return
+	li	a0, THREAD_FLAGS_COPY_ARGS_ON_RETURN
 	call	thread_state_suspend
 	mv	a4, a0		/* Supply thread index */
-	li	a0, TEESMC_OPTEED_RETURN_CALL_DONE
-	mv	a1, x21
-	mv	a2, x22
-	mv	a3, x23
-//	smc	#0
+	li	a6, TEESMC_OPTEED_RETURN_CALL_DONE
+	li	a7, 0x4F505445
+	mv	a1, t2
+	mv	a2, t3
+	mv	a3, t4
 	ecall
-	/* SMC should not return */
-//	panic_at_smc_return
+	/* should not return */
 
 .thread_rpc_return:
 	/*
@@ -247,11 +232,13 @@ FUNC thread_rpc , :
 	 * IRQ and FIQ bits are restored to what they where when this
 	 * function was originally entered.
 	 */
-//	pop	x16, xzr	/* Get pointer to rv[] */
-	ld 
-	store_wregs x16, 0, 0, 3	/* Store w0-w3 into rv[] */
+	ld t0, 0(sp)/* Get pointer to rv[] */
+	addi sp, sp, (1*8)
+	sw a0, (t0)
+	sw a1, 4(t0)
+	sw a2, 8(t0)
+	sw a3, 12(t0)
 	ret
-#endif
 END_FUNC thread_rpc
 DECLARE_KEEP_PAGER thread_rpc
 
@@ -265,14 +252,11 @@ DECLARE_KEEP_PAGER thread_rpc
  */
 FUNC thread_foreign_intr_exit , :
 	mv	a4, a0
-	li	a0, TEESMC_OPTEED_RETURN_CALL_DONE
+	li	a6, TEESMC_OPTEED_RETURN_CALL_DONE
+	li	a7, 0x4F505445
 	li	a1, OPTEE_SMC_RETURN_RPC_FOREIGN_INTR
 	li	a2, 0
 	li	a3, 0
-//	smc	#0
 	ecall
-	/* SMC should not return */
-//	panic_at_smc_return
+	/* should not return */
 END_FUNC thread_foreign_intr_exit
-
-//BTI(emit_aarch64_feature_1_and     GNU_PROPERTY_AARCH64_FEATURE_1_BTI)

@@ -25,15 +25,39 @@
 #define LDR       ld
 #endif
 
-#define TTBR_ASID_SHIFT		44
-#define TTBR_ASID_MASK		0xffff
+
+#define CSR_MODE_OFFSET	PRV_S
+#define XRET			sret
+
+
+#define CSR_MODE_BITS	(CSR_MODE_OFFSET << 8)
+
+#define CSR_XSTATUS		(CSR_MODE_BITS | 0x000)
+#define CSR_XIE			(CSR_MODE_BITS | 0x004)
+#define CSR_XTVEC		(CSR_MODE_BITS | 0x005)
+#define CSR_XSCRATCH	(CSR_MODE_BITS | 0x040)
+#define CSR_XEPC		(CSR_MODE_BITS | 0x041)
+#define CSR_XCAUSE		(CSR_MODE_BITS | 0x042)
+#define CSR_XTVAL		(CSR_MODE_BITS | 0x043)
+#define CSR_XIP			(CSR_MODE_BITS | 0x044)
+
+#define IRQ_XSOFT		(CSR_MODE_OFFSET + 0)
+#define IRQ_XTIMER		(CSR_MODE_OFFSET + 4)
+#define IRQ_XEXT		(CSR_MODE_OFFSET + 8)
+
+#define CSR_XIE_SIE		BIT64(IRQ_XSOFT)
+#define CSR_XIE_TIE		BIT64(IRQ_XTIMER)
+#define CSR_XIE_EIE		BIT64(IRQ_XEXT)
+
+#define CSR_XSTATUS_IE		BIT(CSR_MODE_OFFSET + 0)
+#define CSR_XSTATUS_PIE		BIT(CSR_MODE_OFFSET + 4)
+#define CSR_XSTATUS_SPP		BIT(8)
+#define CSR_XSTATUS_SUM		BIT(18)
+#define CSR_XSTATUS_MXR		BIT(19)
+#define TTBR_ASID_MASK		U(0xff)
+#define TTBR_ASID_SHIFT		U(44)
 
 #ifndef __ASSEMBLER__
-
-#define get_field(reg, mask) (((reg) & \
-                 (unsigned long)(mask)) / ((mask) & ~((mask) << 1)))
-
-#define set_field(val, which, fieldval) (((val) & ~(which)) | ((fieldval) * ((which) & ~((which)-1))))
 
 static inline __noprof void mb(void)
 {
@@ -279,6 +303,25 @@ static inline __noprof void sret(void)
 static inline __noprof void uret(void)
 {
 	asm volatile("uret");
+}
+
+static inline __noprof uint64_t read_time(void)
+{
+	uint64_t time;
+	uint32_t hi __maybe_unused, lo __maybe_unused;
+
+#ifdef RV32
+	do {
+		hi = read_csr(timeh);
+		lo = read_csr(time);
+	} while (hi != read_csr(timeh));
+
+	time =  SHIFT_U32((uint64_t)hi, 32) | lo;
+#else /*RV64*/
+	time = read_csr(time);
+#endif /*RV32*/
+
+	return time;
 }
 
 #endif /*__ASSEMBLER__*/
