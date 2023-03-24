@@ -74,13 +74,12 @@ LOCAL_FUNC vector_fast_smc_entry , : , .identity_map
 END_FUNC vector_fast_smc_entry
 
 LOCAL_FUNC vector_fiq_entry , : , .identity_map
-	readjust_pc
 	/* Secure Monitor received a FIQ and passed control to us. */
 	call	thread_check_canaries
-	call	itr_core_handler
-	li	x0, TEESMC_OPTEED_RETURN_FIQ_DONE
+	/* optee os should receive FIQ here*/
+	li	a6, TEESMC_OPTEED_RETURN_FIQ_DONE
+	li	a7, 0x4F505445
 	ecall
-	/* SMC should not return */
 END_FUNC vector_fiq_entry
 
 LOCAL_FUNC vector_cpu_on_entry , : , .identity_map

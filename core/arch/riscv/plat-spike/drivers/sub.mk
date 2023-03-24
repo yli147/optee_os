@@ -1,1 +1,1 @@
-srcs-y += htif.c
+srcs-n += htif.c

@@ -10,10 +10,6 @@
 
 #include <mm/generic_ram_layout.h>
 
-#ifndef HTIF_BASE
-#define HTIF_BASE	0x40008000
-#endif
-
 #ifdef CFG_RISCV_MTIME_RATE
 #define RISCV_MTIME_RATE CFG_RISCV_MTIME_RATE
 #else
