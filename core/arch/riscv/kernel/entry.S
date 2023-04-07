@@ -213,12 +213,14 @@ FUNC cpu_on_handler , :
 	mv	a1, s2
 	mv	ra, s3
 	j	boot_cpu_on_handler
+	ret
 END_FUNC cpu_on_handler
 DECLARE_KEEP_PAGER cpu_on_handler
 
 LOCAL_FUNC unhandled_cpu , :
 	wfi
 	j	unhandled_cpu
+	ret
 END_FUNC unhandled_cpu
 
 LOCAL_DATA stack_tmp_rel , :
@@ -230,4 +232,5 @@ END_DATA stack_tmp_rel
 LOCAL_FUNC reset_vect_table , :, .identity_map, , nobti
 	wfi
 	j	.
+	ret
 END_FUNC reset_vect_table

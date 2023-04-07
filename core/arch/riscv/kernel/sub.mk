@@ -22,7 +22,7 @@ srcs-y += thread_optee_smc_a64.S
 srcs-y += abort.c
 ifeq ($(CFG_WITH_VFP),y)
 srcs-y += vfp.c
-srcs-y += vfp_a64.S
+srcs-y += vfp_rv64.S
 endif
 srcs-y += trace_ext.c
 

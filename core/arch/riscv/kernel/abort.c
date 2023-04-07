@@ -272,7 +272,17 @@ bool abort_is_user_exception(struct abort_info *ai __unused)
 #if defined(CFG_WITH_VFP) && defined(CFG_WITH_USER_TA)
 static bool is_vfp_fault(struct abort_info *ai)
 {
-	/* Implement */
+	#define RV64_FP_INST_LOAD	0x7
+	#define RV64_FP_INST_STORE	0x27
+	#define RV64_FP_INST_OP		0x53
+	if (ai->regs->cause	== CAUSE_ILLEGAL_INSTRUCTION) {
+		if ((ai->regs->tval & 0x7F) == RV64_FP_INST_LOAD || \
+			(ai->regs->tval & 0x7F) == RV64_FP_INST_STORE || \
+			(ai->regs->tval & 0x7F) == RV64_FP_INST_OP) {
+				return true;
+			}
+	}
+
 	return false;
 }
 #else /*CFG_WITH_VFP && CFG_WITH_USER_TA*/

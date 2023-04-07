@@ -38,8 +38,15 @@ core-platform-cppflags	+= -I$(arch-dir)/include
 core-platform-subdirs += \
 	$(addprefix $(arch-dir)/, kernel mm tee) $(platform-dir)
 
+MARCH ?= rv64imac
+MABI ?= lp64
+
+ifneq (,$(findstring f,$(MARCH)))
+$(call force,CFG_WITH_VFP,y)
+endif
+
 # more convenient to move it to platform instead
-rv64-platform-cppflags += -mcmodel=medany -march=rv64ima -mabi=lp64
+rv64-platform-cppflags += -mcmodel=medany -march=$(MARCH) -mabi=$(MABI)
 rv64-platform-cppflags += -Wno-missing-include-dirs
 
 rv64-platform-cppflags += -DRV64=1 -D__LP64__=1

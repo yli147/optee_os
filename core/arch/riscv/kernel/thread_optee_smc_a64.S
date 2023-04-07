@@ -143,6 +143,8 @@ END_FUNC vector_system_reset_entry
  * in layout has to be synced with ARM-TF.
  */
 FUNC thread_vector_table , : , .identity_map, , nobti
+	.option push
+	.option norvc
 	j	vector_std_smc_entry
 	j	vector_fast_smc_entry
 	j	vector_cpu_on_entry
@@ -152,6 +154,7 @@ FUNC thread_vector_table , : , .identity_map, , nobti
 	j	vector_fiq_entry
 	j	vector_system_off_entry
 	j	vector_system_reset_entry
+	.option pop
 END_FUNC thread_vector_table
 DECLARE_KEEP_PAGER thread_vector_table
 

@@ -69,12 +69,30 @@ void __nostackcheck thread_unmask_exceptions(uint32_t state)
 
 static void thread_lazy_save_ns_vfp(void)
 {
-	/* implement */
+#ifdef CFG_WITH_VFP
+	struct thread_ctx *thr = threads + thread_get_id();
+
+	thr->vfp_state.ns_saved = false;
+	vfp_lazy_save_state_init(&thr->vfp_state.ns);
+#endif /*CFG_WITH_VFP*/
 }
 
 static void thread_lazy_restore_ns_vfp(void)
 {
-	/* implement */
+#ifdef CFG_WITH_VFP
+	struct thread_ctx *thr = threads + thread_get_id();
+	struct thread_user_vfp_state *tuv = thr->vfp_state.uvfp;
+
+	assert(!thr->vfp_state.sec_lazy_saved && !thr->vfp_state.sec_saved);
+
+	if (tuv && tuv->lazy_saved && !tuv->saved) {
+		vfp_lazy_save_state_final(&tuv->vfp, false /*!force_save*/);
+		tuv->saved = true;
+	}
+
+	vfp_lazy_restore_state(&thr->vfp_state.ns, thr->vfp_state.ns_saved);
+	thr->vfp_state.ns_saved = false;
+#endif /*CFG_WITH_VFP*/
 }
 
 uint32_t thread_kernel_enable_vfp(void)
@@ -103,17 +121,62 @@ void thread_kernel_restore_vfp(void)
 
 void thread_user_enable_vfp(struct thread_user_vfp_state *uvfp __unused)
 {
-	/* implement */
+#ifdef CFG_WITH_VFP
+	struct thread_ctx *thr = threads + thread_get_id();
+	struct thread_user_vfp_state *tuv = thr->vfp_state.uvfp;
+
+	assert(thread_get_exceptions() & THREAD_EXCP_FOREIGN_INTR);
+	assert(!vfp_is_enabled());
+
+	if (!thr->vfp_state.ns_saved) {
+		vfp_lazy_save_state_final(&thr->vfp_state.ns,
+					  true /*force_save*/);
+		thr->vfp_state.ns_saved = true;
+	} else if (tuv && uvfp != tuv) {
+		if (tuv->lazy_saved && !tuv->saved) {
+			vfp_lazy_save_state_final(&tuv->vfp,
+						  false /*!force_save*/);
+			tuv->saved = true;
+		}
+	}
+
+	if (uvfp->lazy_saved)
+		vfp_lazy_restore_state(&uvfp->vfp, uvfp->saved);
+	uvfp->lazy_saved = false;
+	uvfp->saved = false;
+
+	thr->vfp_state.uvfp = uvfp;
+	vfp_enable();
+#endif
 }
 
 void thread_user_save_vfp(void)
 {
-	/* implement */
+#ifdef CFG_WITH_VFP
+	struct thread_ctx *thr = threads + thread_get_id();
+	struct thread_user_vfp_state *tuv = thr->vfp_state.uvfp;
+
+	assert(thread_get_exceptions() & THREAD_EXCP_FOREIGN_INTR);
+	if (!vfp_is_enabled())
+		return;
+
+	assert(tuv && !tuv->lazy_saved && !tuv->saved);
+	vfp_lazy_save_state_init(&tuv->vfp);
+	tuv->lazy_saved = true;
+#endif
 }
 
 void thread_user_clear_vfp(struct user_mode_ctx *uctx __unused)
 {
-	/* implement */
+#ifdef CFG_WITH_VFP
+	struct thread_user_vfp_state *uvfp = &uctx->vfp;
+	struct thread_ctx *thr = threads + thread_get_id();
+
+	if (uvfp == thr->vfp_state.uvfp)
+		thr->vfp_state.uvfp = NULL;
+	uvfp->lazy_saved = false;
+	uvfp->saved = false;
+#endif
 }
 
 static void setup_unwind_user_mode(struct thread_svc_regs *regs)
@@ -242,6 +305,7 @@ static void thread_abort_handler(struct thread_trap_regs *trap_regs,
     abort_regs.tval = read_csr(CSR_XTVAL);
     abort_regs.satp = read_csr(CSR_SATP);
     abort_handler(cause, &abort_regs);
+    trap_regs->status = read_csr(CSR_XSTATUS);
 }
 
 static void thread_exception_handler(unsigned long cause,
@@ -310,7 +374,7 @@ static void init_regs(struct thread_ctx *thread, uint32_t a0, uint32_t a1,
 	thread->regs.status = set_field_u64(thread->regs.status, SSTATUS_SPP,
 					    PRV_S);
 //	thread->regs.status |= CSR_XSTATUS_SUM | SSTATUS_MXR;
-	thread->regs.status |= CSR_XSTATUS_SUM | SSTATUS_FS;
+	thread->regs.status |= CSR_XSTATUS_SUM ;
 
 	/* Reinitialize stack pointer */
 	thread->regs.sp = thread->stack_va_end;

@@ -10,6 +10,7 @@
 #include <compiler.h>
 #include <riscv.h>
 #include <types_ext.h>
+#include <kernel/vfp.h>
 
 #define THREAD_CORE_LOCAL_ALIGNED __aligned(2 * RISCV_XLEN_BYTES)
 
@@ -32,6 +33,9 @@ struct thread_core_local {
 } THREAD_CORE_LOCAL_ALIGNED;
 
 struct thread_user_vfp_state {
+	struct vfp_state vfp;
+	bool lazy_saved;
+	bool saved;
 };
 
 struct thread_smc_args {

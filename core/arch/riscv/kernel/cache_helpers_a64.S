@@ -24,6 +24,7 @@ END_FUNC dcache_cleaninv_range
 	 * ------------------------------------------
 	 */
 FUNC dcache_clean_range , :
+	ret
 	//do_dcache_maintenance_by_mva cvac
 END_FUNC dcache_clean_range
 
@@ -33,6 +34,7 @@ END_FUNC dcache_clean_range
 	 * ------------------------------------------
 	 */
 FUNC dcache_inv_range , :
+	ret
 	//do_dcache_maintenance_by_mva ivac
 END_FUNC dcache_inv_range
 
@@ -42,21 +44,25 @@ END_FUNC dcache_inv_range
 	 * ------------------------------------------
 	 */
 FUNC dcache_clean_range_pou , :
+	ret
 	//do_dcache_maintenance_by_mva cvau
 END_FUNC dcache_clean_range_pou
 
 FUNC dcache_op_louis , :
+	ret
 //	dcsw_op #CLIDR_LOUIS_SHIFT, #CLIDR_FIELD_WIDTH, #CSSELR_LEVEL_SHIFT
 END_FUNC dcache_op_louis
 
 FUNC dcache_op_all , :
+	ret
 //	dcsw_op #CLIDR_LOC_SHIFT, #CLIDR_FIELD_WIDTH, #CSSELR_LEVEL_SHIFT
 END_FUNC dcache_op_all
 
-
 FUNC icache_inv_all , :
+	ret
 END_FUNC icache_inv_all
 
 FUNC icache_inv_range , :
+	ret
 END_FUNC icache_inv_range
 

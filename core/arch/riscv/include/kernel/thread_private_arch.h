@@ -9,6 +9,7 @@
 #ifndef __ASSEMBLER__
 
 #include <kernel/thread.h>
+#include <kernel/vfp.h>
 
 #define STACK_TMP_OFFS		0
 #define STACK_TMP_SIZE		(4096 + STACK_TMP_OFFS)
@@ -43,6 +44,17 @@ struct thread_user_mode_rec {
 	 */
 	unsigned long r[16];
 };
+
+#ifdef CFG_WITH_VFP
+struct thread_vfp_state {
+	bool ns_saved;
+	bool sec_saved;
+	bool sec_lazy_saved;
+	struct vfp_state ns;
+	struct vfp_state sec;
+	struct thread_user_vfp_state *uvfp;
+};
+#endif /*CFG_WITH_VFP*/
 
 #endif /*__ASSEMBLER__*/
 
