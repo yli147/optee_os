@@ -39,12 +39,10 @@
 	 */
 	csrrw		gp, CSR_XSCRATCH, zero
 	store_xregs	sp, THREAD_TRAP_REG_SP, 3, 3
-#if 0
 .option push
 .option norelax
 	la		gp, __global_pointer$
 .option pop
-#endif
 .endif
 
 	store_xregs	sp, THREAD_TRAP_REG_T3, 28, 31
@@ -292,7 +290,6 @@ FUNC thread_resume , :
 	load_xregs	a0, THREAD_CTX_REG_EPC, 5, 5
 	csrw		sepc,	t0
 	load_xregs	a0, THREAD_CTX_REG_STATUS, 5, 5
-	or		t0, t0, 0x100
 	csrw		sstatus,	t0
 	load_xregs	a0, THREAD_CTX_REG_SP, 2, 2
 	load_xregs	a0, THREAD_CTX_REG_RA, 1, 1

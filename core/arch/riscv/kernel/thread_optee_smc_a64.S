@@ -25,11 +25,8 @@
  * Note that the identity mapped range and the runtime selected range can
  * only differ if ASLR is configured.
  */
-	.macro readjust_pc
-	.endm
 
 LOCAL_FUNC vector_std_smc_entry , : , .identity_map
-	readjust_pc
 	call	thread_handle_std_smc
 	/*
 	 * Normally thread_handle_std_smc() should return via
@@ -45,7 +42,6 @@ LOCAL_FUNC vector_std_smc_entry , : , .identity_map
 END_FUNC vector_std_smc_entry
 
 LOCAL_FUNC vector_fast_smc_entry , : , .identity_map
-	readjust_pc
 	addi	sp, sp, -64
 	//store_xregs sp, THREAD_SMC_ARGS_X0, 0, 7
 	sd  a0, THREAD_SMC_ARGS_A0(sp)
@@ -91,7 +87,6 @@ LOCAL_FUNC vector_cpu_on_entry , : , .identity_map
 END_FUNC vector_cpu_on_entry
 
 LOCAL_FUNC vector_cpu_off_entry , : , .identity_map
-	readjust_pc
 	call	thread_cpu_off_handler
 	mv	a1, a0
 	li	a0, TEESMC_OPTEED_RETURN_OFF_DONE
@@ -100,7 +95,6 @@ LOCAL_FUNC vector_cpu_off_entry , : , .identity_map
 END_FUNC vector_cpu_off_entry
 
 LOCAL_FUNC vector_cpu_suspend_entry , : , .identity_map
-	readjust_pc
 	call	thread_cpu_suspend_handler
 	mv	a1, a0
 	li	a0, TEESMC_OPTEED_RETURN_SUSPEND_DONE
@@ -109,7 +103,6 @@ LOCAL_FUNC vector_cpu_suspend_entry , : , .identity_map
 END_FUNC vector_cpu_suspend_entry
 
 LOCAL_FUNC vector_cpu_resume_entry , : , .identity_map
-	readjust_pc
 	call	thread_cpu_resume_handler
 	mv	a1, a0
 	li	a0, TEESMC_OPTEED_RETURN_RESUME_DONE
@@ -118,7 +111,6 @@ LOCAL_FUNC vector_cpu_resume_entry , : , .identity_map
 END_FUNC vector_cpu_resume_entry
 
 LOCAL_FUNC vector_system_off_entry , : , .identity_map
-	readjust_pc
 	call	thread_system_off_handler
 	mv	a1, a0
 	li	a0, TEESMC_OPTEED_RETURN_SYSTEM_OFF_DONE
@@ -127,7 +119,6 @@ LOCAL_FUNC vector_system_off_entry , : , .identity_map
 END_FUNC vector_system_off_entry
 
 LOCAL_FUNC vector_system_reset_entry , : , .identity_map
-	readjust_pc
 	call	thread_system_reset_handler
 	mv	a1, a0
 	li	a0, TEESMC_OPTEED_RETURN_SYSTEM_RESET_DONE

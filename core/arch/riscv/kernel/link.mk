@@ -41,75 +41,8 @@ link-script-cppflags := \
 		$(addprefix -I,$(incdirscore) $(link-out-dir)) \
 		$(cppflagscore))
 
-ldargs-all_objs := -T $(link-script-dummy) --no-check-sections \
-		   $(link-objs) $(link-ldadd) $(libgcccore)
-cleanfiles += $(link-out-dir)/all_objs.o
-$(link-out-dir)/all_objs.o: $(objs) $(libdeps) $(MAKEFILE_LIST)
-	@$(cmd-echo-silent) '  LD      $@'
-	$(q)$(LDcore) $(ldargs-all_objs) -o $@
-
-cleanfiles += $(link-out-dir)/unpaged_entries.txt
-$(link-out-dir)/unpaged_entries.txt: $(link-out-dir)/all_objs.o
-	@$(cmd-echo-silent) '  GEN     $@'
-	$(q)$(NMcore) $< | \
-		$(AWK) '/ ____keep_pager/ { printf "-u%s ", $$3 }' > $@
-
-unpaged-ldargs = -T $(link-script-dummy) --no-check-sections --gc-sections
-unpaged-ldadd := $(objs) $(link-ldadd) $(libgcccore)
-cleanfiles += $(link-out-dir)/unpaged.o
-$(link-out-dir)/unpaged.o: $(link-out-dir)/unpaged_entries.txt
-	@$(cmd-echo-silent) '  LD      $@'
-	$(q)$(LDcore) $(unpaged-ldargs) \
-		`cat $(link-out-dir)/unpaged_entries.txt` \
-		$(unpaged-ldadd) -o $@
-
-cleanfiles += $(link-out-dir)/text_unpaged.ld.S
-$(link-out-dir)/text_unpaged.ld.S: $(link-out-dir)/unpaged.o
-	@$(cmd-echo-silent) '  GEN     $@'
-	$(q)$(READELFcore) -S -W $< | \
-		$(PYTHON3) ./scripts/gen_ld_sects.py .text. > $@
-
-cleanfiles += $(link-out-dir)/rodata_unpaged.ld.S
-$(link-out-dir)/rodata_unpaged.ld.S: $(link-out-dir)/unpaged.o
-	@$(cmd-echo-silent) '  GEN     $@'
-	$(q)$(READELFcore) -S -W $< | \
-		$(PYTHON3) ./scripts/gen_ld_sects.py .rodata. > $@
-
-
-cleanfiles += $(link-out-dir)/init_entries.txt
-$(link-out-dir)/init_entries.txt: $(link-out-dir)/all_objs.o
-	@$(cmd-echo-silent) '  GEN     $@'
-	$(q)$(NMcore) $< | \
-		$(AWK) '/ ____keep_init/ { printf "-u%s ", $$3 }' > $@
-
-init-ldargs := -T $(link-script-dummy) --no-check-sections --gc-sections
-init-ldadd := $(link-objs-init) $(link-out-dir)/version.o  $(link-ldadd) \
-	      $(libgcccore)
-cleanfiles += $(link-out-dir)/init.o
-$(link-out-dir)/init.o: $(link-out-dir)/init_entries.txt
-	$(call gen-version-o)
-	@$(cmd-echo-silent) '  LD      $@'
-	$(q)$(LDcore) $(init-ldargs) \
-		`cat $(link-out-dir)/init_entries.txt` \
-		$(init-ldadd) -o $@
-
-cleanfiles += $(link-out-dir)/text_init.ld.S
-$(link-out-dir)/text_init.ld.S: $(link-out-dir)/init.o
-	@$(cmd-echo-silent) '  GEN     $@'
-	$(q)$(READELFcore) -S -W $< | \
-		$(PYTHON3) ./scripts/gen_ld_sects.py .text. > $@
-
-cleanfiles += $(link-out-dir)/rodata_init.ld.S
-$(link-out-dir)/rodata_init.ld.S: $(link-out-dir)/init.o
-	@$(cmd-echo-silent) '  GEN     $@'
-	$(q)$(READELFcore) -S -W $< | $(PYTHON3) ./scripts/gen_ld_sects.py .rodata. > $@
-
 -include $(link-script-dep)
 
-link-script-extra-deps += $(link-out-dir)/text_unpaged.ld.S
-link-script-extra-deps += $(link-out-dir)/rodata_unpaged.ld.S
-link-script-extra-deps += $(link-out-dir)/text_init.ld.S
-link-script-extra-deps += $(link-out-dir)/rodata_init.ld.S
 link-script-extra-deps += $(conf-file)
 cleanfiles += $(link-script-pp) $(link-script-dep)
 $(link-script-pp): $(link-script) $(link-script-extra-deps)
@@ -165,7 +98,7 @@ cleanfiles += $(link-out-dir)/tee.elf $(link-out-dir)/tee.map
 cleanfiles += $(link-out-dir)/version.o
 cleanfiles += $(link-out-dir)/.buildcount
 cleanfiles += $(link-out-dir)/.tee.elf.cmd
-$(link-out-dir)/tee.elf: $(link-objs) $(libdeps) $(link-script-pp) $(FORCE_LINK)
+$(link-out-dir)/tee.elf: $(link-objs) $(libdeps) $(link-script-pp) $(FORCE_LINK) $(link-out-dir)/version.o
 	@echo "old-link-objs := $(link-objs)" >$(link-out-dir)/.tee.elf.cmd
 	@$(cmd-echo-silent) '  LD      $@'
 	$(q)$(LDcore) $(ldargs-tee.elf) -o $@

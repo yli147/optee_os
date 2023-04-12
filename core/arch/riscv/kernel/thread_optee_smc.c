@@ -17,7 +17,6 @@
 #include <optee_msg.h>
 #include <optee_rpc_cmd.h>
 #include <sm/optee_smc.h>
-//#include <sm/sm.h>
 #include <string.h>
 #include <tee/entry_fast.h>
 #include <tee/entry_std.h>

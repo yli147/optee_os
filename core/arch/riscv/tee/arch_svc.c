@@ -16,7 +16,6 @@
 #include <kernel/user_ta.h>
 #include <ldelf.h>
 #include <mm/vm.h>
-//#include <speculation_barrier.h>
 #include <string.h>
 #include <tee/arch_svc.h>
 #include <tee/svc_cache.h>

@@ -275,46 +275,6 @@ static uint32_t desc_to_mattr(unsigned level, uint64_t desc)
 	}
 
 	return mattr;
-#if 0
-	a = TEE_MATTR_VALID_BLOCK;
-
-	if (desc & LOWER_ATTRS(ACCESS_FLAG))
-		a |= TEE_MATTR_PRX | TEE_MATTR_URX;
-
-	if (!(desc & LOWER_ATTRS(AP_RO)))
-		a |= TEE_MATTR_PW | TEE_MATTR_UW;
-
-	if (!(desc & LOWER_ATTRS(AP_UNPRIV)))
-		a &= ~TEE_MATTR_URWX;
-
-	if (desc & UPPER_ATTRS(XN))
-		a &= ~(TEE_MATTR_PX | TEE_MATTR_UX);
-
-	if (desc & UPPER_ATTRS(PXN))
-		a &= ~TEE_MATTR_PX;
-
-	COMPILE_TIME_ASSERT(ATTR_DEVICE_nGnRnE_INDEX ==
-			    TEE_MATTR_MEM_TYPE_STRONGLY_O);
-	COMPILE_TIME_ASSERT(ATTR_DEVICE_nGnRE_INDEX == TEE_MATTR_MEM_TYPE_DEV);
-	COMPILE_TIME_ASSERT(ATTR_IWBWA_OWBWA_NTR_INDEX ==
-			    TEE_MATTR_MEM_TYPE_CACHED);
-	COMPILE_TIME_ASSERT(ATTR_TAGGED_NORMAL_MEM_INDEX ==
-			    TEE_MATTR_MEM_TYPE_TAGGED);
-
-	a |= ((desc & LOWER_ATTRS(ATTR_INDEX_MASK)) >> LOWER_ATTRS_SHIFT) <<
-	     TEE_MATTR_MEM_TYPE_SHIFT;
-
-	if (!(desc & LOWER_ATTRS(NON_GLOBAL)))
-		a |= TEE_MATTR_GLOBAL;
-
-	if (!(desc & LOWER_ATTRS(NS)))
-		a |= TEE_MATTR_SECURE;
-
-	if (desc & GP)
-		a |= TEE_MATTR_GUARDED;
-
-	return a;
-#endif
 }
 
 static uint64_t mattr_to_desc(unsigned level, uint32_t attr)
@@ -819,7 +779,6 @@ void core_mmu_set_user_map(struct core_mmu_user_map *map)
 	/* Clear ASID */
 	ttbr &= ~((uint64_t)TTBR_ASID_MASK << TTBR_ASID_SHIFT);
 	write_satp(ttbr);
-	//isb();
 	mb();
 
 	for (i = 0; i < NUM_BASE_TABLES; i++)
@@ -829,23 +788,16 @@ void core_mmu_set_user_map(struct core_mmu_user_map *map)
 	if (map && map->user_map) {
 		for (i = 0; i < NUM_BASE_TABLES; i++)
 			*entries[i] = map->user_map;
-
-		//dsb();	/* Make sure the write above is visible */
 		mb();
 		ttbr |= ((uint64_t)map->asid << TTBR_ASID_SHIFT);
 		write_satp(ttbr);
-		//isb();
 		mb();
 	} else {
 		for (i = 0; i < NUM_BASE_TABLES; i++)
 			*entries[i] = INVALID_DESC;
-
-		//dsb();	/* Make sure the write above is visible */
 		mb();
 	}
 
-	// tlbi_all();
-	// icache_inv_all();
 	flush_tlb();
 	asm volatile("fence.i");
 
@@ -867,52 +819,18 @@ void tlbi_mva_range_asid(vaddr_t va, size_t len, size_t granule, uint32_t asid)
 	assert(granule == CORE_MMU_PGDIR_SIZE || granule == SMALL_PAGE_SIZE);
 	assert(!(va & (granule - 1)) && !(len & (granule - 1)));
 
-	//dsb_ishst();
 	mb();
 	while (len) {
-		//tlbi_mva_asid_nosync(va, asid);
 		tlbi_mva_asid(va, asid);
 		len -= granule;
 		va += granule;
 	}
-	//dsb_ish();
-	//isb();
 	mb();
 }
 
 /**/
 TEE_Result cache_op_inner(enum cache_op op, void *va, size_t len)
 {
-#if 0
-	switch (op) {
-	case DCACHE_CLEAN:
-		dcache_op_all(DCACHE_OP_CLEAN);
-		break;
-	case DCACHE_AREA_CLEAN:
-		dcache_clean_range(va, len);
-		break;
-	case DCACHE_INVALIDATE:
-		dcache_op_all(DCACHE_OP_INV);
-		break;
-	case DCACHE_AREA_INVALIDATE:
-		dcache_inv_range(va, len);
-		break;
-	case ICACHE_INVALIDATE:
-		icache_inv_all();
-		break;
-	case ICACHE_AREA_INVALIDATE:
-		icache_inv_range(va, len);
-		break;
-	case DCACHE_CLEAN_INV:
-		dcache_op_all(DCACHE_OP_CLEAN_INV);
-		break;
-	case DCACHE_AREA_CLEAN_INV:
-		dcache_cleaninv_range(va, len);
-		break;
-	default:
-		return TEE_ERROR_NOT_IMPLEMENTED;
-	}
-#endif
 	return TEE_SUCCESS;
 }
 
