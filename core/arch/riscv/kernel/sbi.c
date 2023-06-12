@@ -35,16 +35,10 @@ struct sbiret sbi_ecall(int ext, int fid, unsigned long arg0,
 	return ret;
 }
 
-/**
- * sbi_clear_ipi() - Clear any pending IPIs for the calling hart.
- *
- * Return: None
- */
-void sbi_get_hardid(void)
+void sbi_register_secure_intr(int intr)
 {
-	sbi_ecall(SBI_EXT_0_1_CLEAR_IPI, 0, 0, 0, 0, 0, 0, 0);
+	sbi_ecall(SBI_EXT_BASE, SBI_EXT_BASE_REG_SECURE_INTR, intr, 0, 0, 0, 0, 0);
 }
-
 /**
  * sbi_console_putchar() - Writes given character to the console device.
  * @ch: The data to be written to the console.

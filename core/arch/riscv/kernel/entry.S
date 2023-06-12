@@ -17,29 +17,18 @@
 
 	/*
 	 * Setup sp to point to the top of the tmp stack for the current CPU:
-	 * sp is assigned stack_tmp + cpu_id * stack_tmp_stride
+	 * sp is assigned stack_tmp + (hart_id +1) * stack_tmp_stride
 	 */
 .macro set_sp hartid_reg
-	mv t0, \hartid_reg
-	li t1, CFG_TEE_CORE_NB_CORE
-	bge t0, t1, unhandled_cpu
-	lw t1, stack_tmp_stride
-	la t2, stack_tmp
-	mv sp, t2
-	mul t2, t1, t0
-	add sp, sp, t2
-.endm
-	/*
-	 * Setup tp to point to &thread_core_local[cur hartid],
-	 * save current hart id to current thread_core_local hartid field
-	 */
-.macro set_tp hartid_reg
 	mv	t0, \hartid_reg
-	li	t1, THREAD_CORE_LOCAL_SIZE
-	la	tp, thread_core_local
+	li	t1, CFG_TEE_CORE_NB_CORE
+	bge	t0, t1, unhandled_cpu
+	addi	t0, t0, 1
+	lw	t1, stack_tmp_stride
+	la	t2, stack_tmp
+	mv	sp, t2
 	mul	t2, t1, t0
-	add	tp, tp, t2
-	sw	t0, THREAD_CORE_LOCAL_HART_ID(tp)
+	add	sp, sp, t2
 .endm
 
 /*
@@ -70,9 +59,8 @@ clear_bss:
 	add	a0, a0, 8
 	blt	a0, a1, clear_bss
 
-	/* Setup sp, tp, s1 is current hartid */
+	/* Setup sp, s1 is current hartid */
 	set_sp	s1
-	set_tp	s1
 	jal	thread_init_thread_core_local
 
 	/*
@@ -98,7 +86,7 @@ clear_bss:
 
 	jal	boot_init_primary_early
 
-	mv	a0, s2		/* DT address */
+	mv	a0, s2/* DT address */
 	jal	boot_init_primary_late
 	/*
 	 * In case we've touched memory that secondary CPUs will use before
@@ -122,12 +110,12 @@ clear_bss:
 	 * called with MMU off.
 	 * CORE_MMU_CONFIG_LOAD_OFFSET = 16
 	 */
-	la  	s3, boot_mmu_config
+	la	s3, boot_mmu_config
 	ld	a0, 16(s3)
 	la	a1, thread_vector_table
 	sub	a1, a1, a0
 	li	a6, TEESMC_OPTEED_RETURN_ENTRY_DONE
-	li 	a7, 0x4F505445
+	li	a7, 0x4F505445
 	ecall
 	/* ecall should not return */
 END_FUNC _start
@@ -172,7 +160,7 @@ LOCAL_FUNC enable_mmu , : , .identity_map
 	or	a6, a6, a7
 
 	/* Update stvec */
-	csrr 	a7, stvec
+	csrr	a7, stvec
 	add	a7, a7, a4
 	csrw 	stvec, a7
 
@@ -202,12 +190,10 @@ FUNC cpu_on_handler , :
 	csrw	stvec, a0
 	fence
 
-	jal	__get_core_pos
+	/* Setup sp, s1 is current hartid */
+	set_sp	s1
+	mv	a0, s1
 	jal	enable_mmu
-
-	/* Setup SP_EL0 and SP_EL1, SP will be set to SP_EL0 */
-	jal	__get_core_pos
-	set_sp	a0
 
 	mv	a0, s1
 	mv	a1, s2

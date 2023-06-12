@@ -59,6 +59,15 @@
 
 #ifndef __ASSEMBLER__
 
+static inline __noprof unsigned long read_hartid(void)
+{
+	unsigned long hartid;
+
+	asm volatile("csrr %0, 0xdc0" : "=r" (hartid));
+
+	return hartid;
+}
+
 static inline __noprof void mb(void)
 {
 	asm volatile ("fence" : : : "memory");

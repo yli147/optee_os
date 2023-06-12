@@ -40,7 +40,17 @@
 
 uint32_t __nostackcheck thread_get_exceptions(void)
 {
-	return read_csr(CSR_XIE) & THREAD_EXCP_ALL;
+	uint32_t val;
+	uint32_t ret;
+
+	ret = THREAD_EXCP_FOREIGN_INTR | THREAD_EXCP_NATIVE_INTR;
+	val = read_csr(CSR_XIE);
+	if (val & CSR_XIE_EIE)
+		ret &= ~THREAD_EXCP_NATIVE_INTR;
+	if (val & CSR_XIE_TIE)
+		ret &= ~THREAD_EXCP_FOREIGN_INTR;
+
+	return ret;
 }
 
 void __nostackcheck thread_set_exceptions(uint32_t exceptions)
@@ -50,7 +60,13 @@ void __nostackcheck thread_set_exceptions(uint32_t exceptions)
 		assert_have_no_spinlock();
 
 	barrier();
-	write_csr(CSR_XIE, exceptions);
+	/* only make flag in XIE csr, not to use. because when cpu on TEE, it cannot be interrupted*/
+	set_csr(CSR_XIE, CSR_XIE_EIE);
+	set_csr(CSR_XIE, CSR_XIE_TIE);
+	if (exceptions & THREAD_EXCP_FOREIGN_INTR)
+		clear_csr(CSR_XIE, CSR_XIE_TIE);
+	if (exceptions & THREAD_EXCP_NATIVE_INTR)
+		clear_csr(CSR_XIE, CSR_XIE_EIE);
 	barrier();
 }
 
@@ -186,7 +202,7 @@ static void setup_unwind_user_mode(struct thread_svc_regs *regs)
 	regs->sp = thread_get_saved_thread_sp();
 }
 
-static void thread_unhandled_trap(struct thread_trap_regs *regs,
+static void thread_unhandled_trap(struct thread_trap_regs *regs __unused,
 				  unsigned long cause __unused)
 {
     DMSG("Unhandled trap xepc:0x%016lx xcause:0x%016lx xtval:0x%016lx",
@@ -425,7 +441,6 @@ static void __thread_alloc_and_run(uint32_t a0, uint32_t a1, uint32_t a2,
 
 	threads[n].flags = 0;
 	init_regs(threads + n, a0, a1, a2, a3, a4, a5, a6, a7, pc);
-
 	thread_lazy_save_ns_vfp();
 
 	l->flags &= ~THREAD_CLF_TMP;
@@ -541,7 +556,6 @@ void thread_resume_from_rpc(uint32_t thread_id, uint32_t a0, uint32_t a1,
 
 	if (threads[n].have_user_map)
 		ftrace_resume();
-
 	l->flags &= ~THREAD_CLF_TMP;
 	/*set SPP to supervisor*/
 	threads[n].regs.status |= SSTATUS_SPP;

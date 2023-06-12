@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: BSD-2-Clause */
 /*
- * Copyright (c) 2019, Linaro Limited
+ * Copyright (c) 2023, Nuclei System Technology.
  */
 
 #include <riscv.h>
@@ -43,7 +43,6 @@ END_FUNC vector_std_smc_entry
 
 LOCAL_FUNC vector_fast_smc_entry , : , .identity_map
 	addi	sp, sp, -64
-	//store_xregs sp, THREAD_SMC_ARGS_X0, 0, 7
 	sd  a0, THREAD_SMC_ARGS_A0(sp)
 	sd  a1, THREAD_SMC_ARGS_A1(sp)
 	sd  a2, THREAD_SMC_ARGS_A2(sp)
@@ -54,14 +53,11 @@ LOCAL_FUNC vector_fast_smc_entry , : , .identity_map
 //	sd  a7, THREAD_SMC_ARGS_A7(sp)	
 	mv	a0, sp
 	call thread_handle_fast_smc
-	//load_xregs sp, THREAD_SMC_ARGS_X0, 1, 8
 	ld  a1, THREAD_SMC_ARGS_A0(sp)
 	ld  a2, THREAD_SMC_ARGS_A1(sp)
 	ld  a3, THREAD_SMC_ARGS_A2(sp)
 	ld  a4, THREAD_SMC_ARGS_A3(sp)
 	ld  a5, THREAD_SMC_ARGS_A4(sp)
-//	ld  a6, THREAD_SMC_ARGS_A5(sp)
-//	ld  a7, THREAD_SMC_ARGS_A6(sp)
 	addi	sp, sp, 64
 	li	a6, TEESMC_OPTEED_RETURN_CALL_DONE
 	li	a7, 0x4F505445
@@ -81,7 +77,8 @@ END_FUNC vector_fiq_entry
 LOCAL_FUNC vector_cpu_on_entry , : , .identity_map
 	call	cpu_on_handler
 	mv	a1, a0
-	li	a0, TEESMC_OPTEED_RETURN_ON_DONE
+	li	a6, TEESMC_OPTEED_RETURN_ON_DONE
+	li	a7, 0x4F505445
 	ecall
 	/* SMC should not return */
 END_FUNC vector_cpu_on_entry
@@ -89,7 +86,8 @@ END_FUNC vector_cpu_on_entry
 LOCAL_FUNC vector_cpu_off_entry , : , .identity_map
 	call	thread_cpu_off_handler
 	mv	a1, a0
-	li	a0, TEESMC_OPTEED_RETURN_OFF_DONE
+	li	a6, TEESMC_OPTEED_RETURN_OFF_DONE
+	li	a7, 0x4F505445
 	ecall
 	/* SMC should not return */
 END_FUNC vector_cpu_off_entry
@@ -154,9 +152,8 @@ FUNC thread_std_smc_entry , :
 	mv	s2, a0	/* Save return value for later */
 
 	/* Mask all maskable exceptions before switching to temporary stack */
-	//msr	daifset, #DAIFBIT_ALL
-	/* clean riscv SIE of sstatus reg */
-	csrci   sstatus,2
+	li	a0, 3
+	call	thread_mask_exceptions
 	
 	call	thread_get_tmp_sp
 	mv	sp, a0
@@ -175,19 +172,15 @@ END_FUNC thread_std_smc_entry
 
 /* void thread_rpc(uint32_t rv[THREAD_RPC_NUM_ARGS]) */
 FUNC thread_rpc , :
-	li a1, 2
-	or a1, a1, 32
-	or a1, a1, 512
-	/*disable all maskable interrupt*/
-	csrc sie, a1
-
 	/*read sstatus to a1*/
 	csrr a1, sstatus
-
 	addi sp, sp, -(3*8)
 	sd ra, 0(sp)
 	sd a1, 8(sp)
 	sd a0, 16(sp)
+	/*disable all maskable interrupt*/
+	li a0, 3
+	call thread_mask_exceptions
 	call thread_get_ctx_regs
 	ld ra, 0(sp)
 	store_xregs a0, THREAD_CTX_REG_RA, 1, 1

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright 2022 NXP
+ * Copyright 2023 Nuclei System Technology.
  */
 
 #include <asm.S>
@@ -12,27 +13,13 @@
 #include <riscv.h>
 #include <riscv_macros.S>
 
-.macro get_thread_ctx res, tmp0
-	lw	\tmp0, THREAD_CORE_LOCAL_CURR_THREAD(tp)
-	la	\res, threads
-1:
-	beqz	\tmp0, 2f
-	addi	\res, \res, THREAD_CTX_SIZE
-	addi	\tmp0, \tmp0, -1
-	bnez	\tmp0, 1b
-2:
-.endm
-
 .macro save_regs, mode
 	addi	sp, sp, -THREAD_TRAP_REGS_SIZE
 .if \mode == TRAP_MODE_USER
-
 	/* Save user thread pointer and load kernel thread pointer */
 	store_xregs	sp, THREAD_TRAP_REG_TP, 4, 4
 	load_xregs	sp, (THREAD_TRAP_REGS_SIZE - RISCV_XLEN_BYTES), 4, 4
-
 	store_xregs	sp, THREAD_TRAP_REG_GP, 3, 3
-
 	/*
 	 * Set the scratch register to 0 such in case of a recursive
 	 * exception thread_trap_vect() knows that it is emitted from kernel.
@@ -100,12 +87,6 @@
 	addi		sp, sp, THREAD_TRAP_REGS_SIZE
 .endif
 .endm
-
-/* size_t __get_core_pos(void); */
-FUNC __get_core_pos , : , .identity_map
-	lw		a0, THREAD_CORE_LOCAL_HART_ID(tp)
-	ret
-END_FUNC __get_core_pos
 
 FUNC thread_trap_vect , :
 	csrrw		sp, CSR_XSCRATCH, sp
@@ -206,25 +187,22 @@ FUNC __thread_enter_user_mode , :
 	store_xregs	sp, THREAD_USER_MODE_REC_RA, 1, 4
 	store_xregs	sp, THREAD_USER_MODE_REC_S0, 8, 9
 	store_xregs	sp, THREAD_USER_MODE_REC_S2, 18, 27
-	/*
-	 * get pointer to current thread context
-	 */
-	get_thread_ctx	s0, s1
 
+	/*
+	 * get pointer to current thread context,
+	 * thread_ctx addr is same as thread_ctx_regs
+	 */
+	mv			tp, a0
 	/*
 	 * Save kernel stack pointer to ensure that
 	 * thread_exit_user_mode() uses correct stack pointer.
 	 */
 
-	store_xregs	s0, THREAD_CTX_KERN_SP, 2, 2
-
+	store_xregs	a0, THREAD_CTX_KERN_SP, 2, 2
 	/*
 	 * Save the values for a0 and a1 in struct thread_core_local to be
 	 * restored later just before the xret.
 	 */
-
-	load_xregs	a0, THREAD_CTX_REG_A0, 8, 9
-	store_xregs	tp, THREAD_CORE_LOCAL_R0, 8, 9
 
 	/*
 	 * Save kernel stack pointer in xSCRATCH to ensure that
@@ -232,7 +210,6 @@ FUNC __thread_enter_user_mode , :
 	 */
 
 	csrw		CSR_XSCRATCH, sp
-
 	/*
 	 * Save kernel thread pointer below of the kernel stack pointer
 	 * to enure that thread_trap_vect() uses correct tp when traps
@@ -288,17 +265,17 @@ END_FUNC __thread_enter_user_mode
 /* void thread_resume(struct thread_ctx_regs *regs) */
 FUNC thread_resume , :
 	load_xregs	a0, THREAD_CTX_REG_EPC, 5, 5
-	csrw		sepc,	t0
+	csrw		sepc, t0
 	load_xregs	a0, THREAD_CTX_REG_STATUS, 5, 5
-	csrw		sstatus,	t0
+	csrw		sstatus, t0
 	load_xregs	a0, THREAD_CTX_REG_SP, 2, 2
 	load_xregs	a0, THREAD_CTX_REG_RA, 1, 1
 	load_xregs	a0, THREAD_CTX_REG_A1, 11, 15
 	load_xregs	a0, THREAD_CTX_REG_T0, 5, 7
 	load_xregs	a0, THREAD_CTX_REG_A6, 16, 17
 	load_xregs	a0, THREAD_CTX_REG_T3, 28, 31
-	load_xregs 	a0, THREAD_CTX_REG_S0, 8, 9
-	load_xregs 	a0, THREAD_CTX_REG_S2, 18, 27
+	load_xregs	a0, THREAD_CTX_REG_S0, 8, 9
+	load_xregs	a0, THREAD_CTX_REG_S2, 18, 27
 	load_xregs	a0, THREAD_CTX_REG_A0, 10, 10
 	sret
 END_FUNC thread_resume

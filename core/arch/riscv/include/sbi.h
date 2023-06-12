@@ -39,6 +39,7 @@ enum sbi_ext_base_fid {
 	SBI_EXT_BASE_GET_MVENDORID,
 	SBI_EXT_BASE_GET_MARCHID,
 	SBI_EXT_BASE_GET_MIMPID,
+	SBI_EXT_BASE_REG_SECURE_INTR,
 };
 
 enum sbi_ext_time_fid {
@@ -97,6 +98,7 @@ struct sbiret sbi_ecall(int ext, int fid, unsigned long arg0,
 			unsigned long arg3, unsigned long arg4,
 			unsigned long arg5);
 
+void sbi_register_secure_intr(int intr);
 void sbi_console_putchar(int ch);
 int sbi_console_getchar(void);
 void sbi_set_timer(uint64_t stime_value);

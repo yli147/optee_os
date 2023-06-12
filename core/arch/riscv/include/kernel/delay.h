@@ -39,11 +39,13 @@ void mdelay(uint32_t ms);
 
 static inline uint64_t timeout_init_us(uint32_t us)
 {
+	(void)us;
 	return 0;
 }
 
 static inline bool timeout_elapsed(uint64_t expire)
 {
+	(void)expire;
 	return false;
 }
 

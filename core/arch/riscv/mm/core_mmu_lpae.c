@@ -277,7 +277,7 @@ static uint32_t desc_to_mattr(unsigned level, uint64_t desc)
 	return mattr;
 }
 
-static uint64_t mattr_to_desc(unsigned level, uint32_t attr)
+static uint64_t mattr_to_desc(unsigned level __unused, uint32_t attr)
 {
 	uint64_t desc = 0;
 
@@ -329,7 +329,7 @@ static uint64_t *core_mmu_xlat_table_alloc(struct mmu_partition *prtn)
  * Given an entry that points to a table returns the virtual address
  * of the pointed table. NULL otherwise.
  */
-static void *core_mmu_xlat_table_entry_pa2va(struct mmu_partition *prtn,
+static void *core_mmu_xlat_table_entry_pa2va(struct mmu_partition *prtn __unused,
 					     unsigned int level,
 					     uint64_t entry)
 {
@@ -804,9 +804,9 @@ void core_mmu_set_user_map(struct core_mmu_user_map *map)
 	thread_unmask_exceptions(exceptions);
 }
 
-enum core_mmu_fault core_mmu_get_fault_type(uint32_t fault_descr)
+enum core_mmu_fault core_mmu_get_fault_type(uint32_t fault_descr __unused)
 {
-
+	return 0;
 }
 
 #define MMU_NUM_ASID_PAIRS		64
@@ -828,9 +828,11 @@ void tlbi_mva_range_asid(vaddr_t va, size_t len, size_t granule, uint32_t asid)
 	mb();
 }
 
-/**/
 TEE_Result cache_op_inner(enum cache_op op, void *va, size_t len)
 {
+	(void)op;
+	(void)va;
+	(void)len;
 	return TEE_SUCCESS;
 }
 
@@ -873,22 +875,22 @@ bool arch_va2pa_helper(void *va, paddr_t *pa)
 {
 	uint32_t exceptions = thread_mask_exceptions(THREAD_EXCP_ALL);
 	bool ret = false;
-	uint64_t ttb;
-	uint64_t level;
-	uint64_t idx;
-	uint64_t entry;
+	uint32_t ttb;
+	uint32_t level;
+	uint32_t idx;
+	uint32_t entry;
 	int i;
 
-	ttb = (read_satp() & ((1 << 44) - 1)) << 12;
+	ttb = (read_satp() & ((1UL << 44) - 1)) << 12;
 	if (ttb == 0) {
 		ret = true;
-		*pa = va;
+		*pa = (paddr_t)va;
 		goto out;
 	}
 	for (i = 0; i < 3; i++) {
 		level = i + 1;
 		idx = ((vaddr_t)va >> XLAT_ADDR_SHIFT(level)) & (XLAT_TABLE_ENTRIES_MASK);
-		entry = ((uint64_t*)ttb)[idx];
+		entry = ((uint64_t*)(size_t)ttb)[idx];
 		if (!(entry & PTE_V)) {
 			debug_print("level:%x,idx:%x, invalid entry:%x\n",level, idx, entry);
 			ret = false;
@@ -897,7 +899,7 @@ bool arch_va2pa_helper(void *va, paddr_t *pa)
 
 		if (!DESC_IS_TABLE(entry)) {
 			/*entry is block entry, direct get ppn ,add va offset return pa*/
-			*pa = (PTE_PPN(entry) << PAGE_SIZE_SHIFT) | ((vaddr_t)va & PAGE_SIZE_MASK);
+			*pa = (PTE_PPN(entry) << PAGE_SIZE_SHIFT) | ((vaddr_t)va & (XLAT_BLOCK_SIZE(level) - 1));
 			ret = true;
 			break;
 		} else {

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright 2022 NXP
+ * Copyright 2023 Nuclei System Technology.
  */
 
 #ifndef __KERNEL_THREAD_ARCH_H
@@ -19,7 +20,6 @@ struct thread_pauth_keys {
 
 struct thread_core_local {
 	unsigned long r[4];
-	uint32_t hart_id;
 	vaddr_t tmp_stack_va_end;
 	short int curr_thread;
 	uint32_t flags;
@@ -188,10 +188,17 @@ struct user_mode_ctx;
  * These flags should vary according to the privilege mode selected
  * to run OP-TEE core on (M/HS/S). For now default to S-Mode.
  */
-
-#define THREAD_EXCP_FOREIGN_INTR	CSR_XIE_EIE
-#define THREAD_EXCP_NATIVE_INTR		(CSR_XIE_SIE | CSR_XIE_TIE)
+/* this is logic interrupt, not real*/
+#define THREAD_EXCP_FOREIGN_INTR		0x1
+#define THREAD_EXCP_NATIVE_INTR			0x2
 #define THREAD_EXCP_ALL	(THREAD_EXCP_FOREIGN_INTR | THREAD_EXCP_NATIVE_INTR)
+
+
+unsigned long thread_cpu_off_handler(unsigned long a0, unsigned long a1);
+unsigned long thread_cpu_suspend_handler(unsigned long a0, unsigned long a1);
+unsigned long thread_cpu_resume_handler(unsigned long a0, unsigned long a1);
+unsigned long thread_system_off_handler(unsigned long a0, unsigned long a1);
+unsigned long thread_system_reset_handler(unsigned long a0, unsigned long a1);
 
 uint32_t thread_kernel_enable_vfp(void);
 void thread_kernel_disable_vfp(uint32_t state);

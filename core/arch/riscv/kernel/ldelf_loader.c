@@ -170,7 +170,6 @@ TEE_Result ldelf_dump_state(struct user_mode_ctx *uctx)
 	struct dump_entry_arg *arg = NULL;
 	uint32_t panic_code = 0;
 	uint32_t panicked = 0;
-	struct thread_specific_data *tsd = thread_get_tsd();
 	struct ts_session *sess = NULL;
 	struct vm_region *r = NULL;
 	size_t n = 0;
@@ -221,48 +220,6 @@ TEE_Result ldelf_dump_state(struct user_mode_ctx *uctx)
 	}
 
 	arg->is_arm32 = uctx->is_32bit;
-#ifdef ARM32
-	arg->arm32.regs[0] = tsd->abort_regs.r0;
-	arg->arm32.regs[1] = tsd->abort_regs.r1;
-	arg->arm32.regs[2] = tsd->abort_regs.r2;
-	arg->arm32.regs[3] = tsd->abort_regs.r3;
-	arg->arm32.regs[4] = tsd->abort_regs.r4;
-	arg->arm32.regs[5] = tsd->abort_regs.r5;
-	arg->arm32.regs[6] = tsd->abort_regs.r6;
-	arg->arm32.regs[7] = tsd->abort_regs.r7;
-	arg->arm32.regs[8] = tsd->abort_regs.r8;
-	arg->arm32.regs[9] = tsd->abort_regs.r9;
-	arg->arm32.regs[10] = tsd->abort_regs.r10;
-	arg->arm32.regs[11] = tsd->abort_regs.r11;
-	arg->arm32.regs[12] = tsd->abort_regs.ip;
-	arg->arm32.regs[13] = tsd->abort_regs.usr_sp; /*SP*/
-	arg->arm32.regs[14] = tsd->abort_regs.usr_lr; /*LR*/
-	arg->arm32.regs[15] = tsd->abort_regs.elr; /*PC*/
-#endif /*ARM32*/
-#ifdef ARM64
-	if (uctx->is_32bit) {
-		arg->arm32.regs[0] = tsd->abort_regs.x0;
-		arg->arm32.regs[1] = tsd->abort_regs.x1;
-		arg->arm32.regs[2] = tsd->abort_regs.x2;
-		arg->arm32.regs[3] = tsd->abort_regs.x3;
-		arg->arm32.regs[4] = tsd->abort_regs.x4;
-		arg->arm32.regs[5] = tsd->abort_regs.x5;
-		arg->arm32.regs[6] = tsd->abort_regs.x6;
-		arg->arm32.regs[7] = tsd->abort_regs.x7;
-		arg->arm32.regs[8] = tsd->abort_regs.x8;
-		arg->arm32.regs[9] = tsd->abort_regs.x9;
-		arg->arm32.regs[10] = tsd->abort_regs.x10;
-		arg->arm32.regs[11] = tsd->abort_regs.x11;
-		arg->arm32.regs[12] = tsd->abort_regs.x12;
-		arg->arm32.regs[13] = tsd->abort_regs.x13; /*SP*/
-		arg->arm32.regs[14] = tsd->abort_regs.x14; /*LR*/
-		arg->arm32.regs[15] = tsd->abort_regs.elr; /*PC*/
-	} else {
-		arg->arm64.fp = tsd->abort_regs.x29;
-		arg->arm64.pc = tsd->abort_regs.elr;
-		arg->arm64.sp = tsd->abort_regs.sp_el0;
-	}
-#endif /*ARM64*/
 
 	sess = ts_get_current_session();
 	sess->handle_svc = ldelf_handle_svc;

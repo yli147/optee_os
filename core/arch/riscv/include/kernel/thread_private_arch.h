@@ -16,9 +16,9 @@
 #define STACK_THREAD_SIZE	8192
 
 #if TRACE_LEVEL > 0
-#define STACK_ABT_SIZE		3072
+#define STACK_ABT_SIZE		0
 #else
-#define STACK_ABT_SIZE		1024
+#define STACK_ABT_SIZE		0
 #endif
 
 #ifdef CFG_CORE_DEBUG_CHECK_STACKS
@@ -73,6 +73,9 @@ void thread_trap_vect(void);
 void thread_trap_vect_end(void);
 
 void thread_handle_fast_smc(struct thread_smc_args *args);
+uint32_t thread_handle_std_smc(uint32_t a0, uint32_t a1, uint32_t a2,
+			       uint32_t a3, uint32_t a4, uint32_t a5,
+			       uint32_t a6, uint32_t a7);
 void thread_std_smc_entry(uint32_t a0, uint32_t a1, uint32_t a2, uint32_t a3,
 			  uint32_t a4, uint32_t a5);
 uint32_t __thread_std_smc_entry(uint32_t a0, uint32_t a1, uint32_t a2,

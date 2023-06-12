@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright 2022 NXP
+ * Copyright 2023 Nuclei System Technology.
  */
 
 #ifndef KERNEL_MISC_H
@@ -14,8 +15,7 @@
 static inline size_t __noprof get_core_pos(void)
 {
 	assert(thread_get_exceptions() & THREAD_EXCP_FOREIGN_INTR);
-	//return read_csr(mhartid);
-	return 0;
+	return read_hartid();
 }
 
 #endif /*KERNEL_MISC_H*/

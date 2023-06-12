@@ -47,8 +47,8 @@ out:
 }
 
 uint32_t thread_handle_std_smc(uint32_t a0, uint32_t a1, uint32_t a2,
-			       uint32_t a3, uint32_t a4, uint32_t a5,
-			       uint32_t a6 __unused, uint32_t a7 __maybe_unused)
+			       uint32_t a3, uint32_t a4, uint32_t a5 __unused,
+			       uint32_t a6 , uint32_t a7 __maybe_unused)
 {
 	uint32_t rv = OPTEE_SMC_RETURN_OK;
 

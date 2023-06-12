@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-2-Clause
 /*
- * Copyright (c) 2023. Nuclei Tech.
+ * Copyright 2023 Nuclei System Technology.
  */
 
 #include <drivers/gic.h>
@@ -11,6 +11,7 @@
 #include <trace.h>
 #include <mm/core_mmu.h>
 #include <mm/core_memprot.h>
+#include <sbi.h>
 
 #define SEC_TIMER_SERVICE_UUID \
 		{ 0x6272636D, 0x2019, 0x0801,  \
@@ -24,16 +25,24 @@
 #define SEC_TIMER_BASE 0x10012000
 #define SEC_TIMER_SIZE 0x1000
 
-register_phys_mem_pgdir(MEM_AREA_IO_SEC, SEC_TIMER_BASE, SEC_TIMER_SIZE);
+register_phys_mem(MEM_AREA_IO_SEC, SEC_TIMER_BASE, SEC_TIMER_SIZE);
 static	volatile    vaddr_t timer_base = 0;
 static TEE_Result pta_timer_set_timeout(uint32_t param_types,
 				     TEE_Param params[TEE_NUM_PARAMS])
 {
 
 	uint32_t timeout1 = 0;
-	uint32_t timeout2 = 0;
+	//uint32_t timeout2 = 0;
+	uint32_t exp_param_types;
+	static int flag = 0;
 
-	uint32_t exp_param_types = TEE_PARAM_TYPES(TEE_PARAM_TYPE_VALUE_INPUT,
+	/* register secure timer interrupt int38*/
+	if (flag == 0) {
+		flag = 1;
+		sbi_register_secure_intr(38);
+	}
+
+	exp_param_types = TEE_PARAM_TYPES(TEE_PARAM_TYPE_VALUE_INPUT,
 						   TEE_PARAM_TYPE_VALUE_INPUT,
 						   TEE_PARAM_TYPE_NONE,
 						   TEE_PARAM_TYPE_NONE);
@@ -44,13 +53,13 @@ static TEE_Result pta_timer_set_timeout(uint32_t param_types,
 	}
 
 	timeout1 = params[0].value.a;
-	timeout2 = params[1].value.a;
+	//timeout2 = params[1].value.a;
 	if (timer_base == 0)
 		timer_base = core_mmu_get_va(SEC_TIMER_BASE, MEM_AREA_IO_SEC,
 	                   SEC_TIMER_SIZE);
-	
+
 	*(volatile unsigned int*)timer_base = timeout1;
-	*(volatile unsigned int*)(timer_base + 1) = timeout2;
+	//*(volatile unsigned int*)(timer_base + 1) = timeout2;
 
 	return TEE_SUCCESS;
 }
@@ -67,11 +76,12 @@ static TEE_Result pta_timer_stop(uint32_t param_types,
 		EMSG("Invalid Param types");
 		return TEE_ERROR_BAD_PARAMETERS;
 	}
-
+	/* avoid warning */
+	(void)params;
 	if (timer_base == 0)
 		timer_base = core_mmu_get_va(SEC_TIMER_BASE, MEM_AREA_IO_SEC,
 	                   SEC_TIMER_SIZE);
-	
+
 	*(volatile unsigned int*)timer_base = (unsigned int)-1;
 	*(volatile unsigned int*)(timer_base + 1) = (unsigned int)-1;
 
