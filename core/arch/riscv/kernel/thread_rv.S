@@ -14,29 +14,32 @@
 #include <riscv_macros.S>
 
 .macro save_regs, mode
-	addi	sp, sp, -THREAD_TRAP_REGS_SIZE
-.if \mode == TRAP_MODE_USER
-	/* Save user thread pointer and load kernel thread pointer */
+	addi		sp, sp, -THREAD_TRAP_REGS_SIZE
 	store_xregs	sp, THREAD_TRAP_REG_TP, 4, 4
-	load_xregs	sp, (THREAD_TRAP_REGS_SIZE - RISCV_XLEN_BYTES), 4, 4
 	store_xregs	sp, THREAD_TRAP_REG_GP, 3, 3
+.if \mode == TRAP_MODE_USER
 	/*
 	 * Set the scratch register to 0 such in case of a recursive
 	 * exception thread_trap_vect() knows that it is emitted from kernel.
 	 */
 	csrrw		gp, CSR_XSCRATCH, zero
 	store_xregs	sp, THREAD_TRAP_REG_SP, 3, 3
+.else
+	addi		tp, sp, THREAD_TRAP_REGS_SIZE
+	store_xregs	sp, THREAD_TRAP_REG_SP, 4, 4
+.endif
+
 .option push
 .option norelax
 	la		gp, __global_pointer$
 .option pop
-.endif
 
 	store_xregs	sp, THREAD_TRAP_REG_T3, 28, 31
 	store_xregs	sp, THREAD_TRAP_REG_A6, 16, 17
 	store_xregs	sp, THREAD_TRAP_REG_T0, 5, 7
 	store_xregs	sp, THREAD_TRAP_REG_A0, 10, 15
-
+	store_xregs	sp, THREAD_TRAP_REG_S0, 8, 9
+	store_xregs	sp, THREAD_TRAP_REG_S2, 18, 27
 	store_xregs	sp, THREAD_TRAP_REG_RA, 1, 1
 
 	csrr		t0, CSR_XSTATUS
@@ -74,16 +77,15 @@
 	load_xregs	sp, THREAD_TRAP_REG_A6, 16, 17
 	load_xregs	sp, THREAD_TRAP_REG_T3, 28, 31
 
+	load_xregs	sp, THREAD_TRAP_REG_TP, 4, 4
+
 .if \mode == TRAP_MODE_USER
 	addi		gp, sp, THREAD_TRAP_REGS_SIZE
-	store_xregs	gp, REGOFF(-1), 4, 4
 	csrw		CSR_XSCRATCH, gp
-
-	load_xregs	sp, THREAD_TRAP_REG_TP, 4, 4
 	load_xregs	sp, THREAD_TRAP_REG_GP, 3, 3
 	load_xregs	sp, THREAD_TRAP_REG_SP, 2, 2
-
 .else
+	load_xregs	sp, THREAD_TRAP_REG_GP, 3, 3
 	addi		sp, sp, THREAD_TRAP_REGS_SIZE
 .endif
 .endm
@@ -215,7 +217,6 @@ FUNC __thread_enter_user_mode , :
 	 * to enure that thread_trap_vect() uses correct tp when traps
 	 * come from user.
 	 */
-	store_xregs	sp, REGOFF(-1), 4, 4
 
 	/*
 	 * Initialize xstatus, xepc, and user sp to enter user mode
@@ -260,7 +261,6 @@ FUNC __thread_enter_user_mode , :
 	/* Jump into user mode */
 	XRET
 END_FUNC __thread_enter_user_mode
-
 
 /* void thread_resume(struct thread_ctx_regs *regs) */
 FUNC thread_resume , :

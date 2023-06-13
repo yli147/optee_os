@@ -89,6 +89,8 @@ DEFINES
 	DEFINE(THREAD_TRAP_REG_T0, offsetof(struct thread_trap_regs, t0));
 	DEFINE(THREAD_TRAP_REG_T1, offsetof(struct thread_trap_regs, t1));
 	DEFINE(THREAD_TRAP_REG_T2, offsetof(struct thread_trap_regs, t2));
+	DEFINE(THREAD_TRAP_REG_S0, offsetof(struct thread_trap_regs, s0));
+	DEFINE(THREAD_TRAP_REG_S1, offsetof(struct thread_trap_regs, s1));
 	DEFINE(THREAD_TRAP_REG_A0, offsetof(struct thread_trap_regs, a0));
 	DEFINE(THREAD_TRAP_REG_A1, offsetof(struct thread_trap_regs, a1));
 	DEFINE(THREAD_TRAP_REG_A2, offsetof(struct thread_trap_regs, a2));
@@ -97,6 +99,16 @@ DEFINES
 	DEFINE(THREAD_TRAP_REG_A5, offsetof(struct thread_trap_regs, a5));
 	DEFINE(THREAD_TRAP_REG_A6, offsetof(struct thread_trap_regs, a6));
 	DEFINE(THREAD_TRAP_REG_A7, offsetof(struct thread_trap_regs, a7));
+	DEFINE(THREAD_TRAP_REG_S2, offsetof(struct thread_trap_regs, s2));
+	DEFINE(THREAD_TRAP_REG_S3, offsetof(struct thread_trap_regs, s3));
+	DEFINE(THREAD_TRAP_REG_S4, offsetof(struct thread_trap_regs, s4));
+	DEFINE(THREAD_TRAP_REG_S5, offsetof(struct thread_trap_regs, s5));
+	DEFINE(THREAD_TRAP_REG_S6, offsetof(struct thread_trap_regs, s6));
+	DEFINE(THREAD_TRAP_REG_S7, offsetof(struct thread_trap_regs, s7));
+	DEFINE(THREAD_TRAP_REG_S8, offsetof(struct thread_trap_regs, s8));
+	DEFINE(THREAD_TRAP_REG_S9, offsetof(struct thread_trap_regs, s9));
+	DEFINE(THREAD_TRAP_REG_S10, offsetof(struct thread_trap_regs, s10));
+	DEFINE(THREAD_TRAP_REG_S11, offsetof(struct thread_trap_regs, s11));
 	DEFINE(THREAD_TRAP_REG_T3, offsetof(struct thread_trap_regs, t3));
 	DEFINE(THREAD_TRAP_REG_T4, offsetof(struct thread_trap_regs, t4));
 	DEFINE(THREAD_TRAP_REG_T5, offsetof(struct thread_trap_regs, t5));

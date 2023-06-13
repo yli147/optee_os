@@ -187,25 +187,25 @@ FUNC thread_rpc , :
 	store_xregs a0, THREAD_CTX_REG_S0, 8, 9
 	store_xregs a0, THREAD_CTX_REG_S2, 18, 27
 
-	mv t0, a0
+	mv s0, a0
 	call thread_get_tmp_sp
 	ld a1, 8(sp)
-	ld t1, 16(sp) /* Get pointer to rv[] */
+	ld s1, 16(sp) /* Get pointer to rv[] */
 	addi sp, sp, 2*8
-	sd sp, THREAD_CTX_REG_SP(t0)
+	sd sp, THREAD_CTX_REG_SP(s0)
 	mv sp, a0 /* Switch to tmp stack */
-	lw t2,0(t1)
-	lw t3,4(t1)
-	lw t4,8(t1)
+	lw s2,0(s1)
+	lw s3,4(s1)
+	lw s4,8(s1)
 	la a2, .thread_rpc_return
 	li	a0, THREAD_FLAGS_COPY_ARGS_ON_RETURN
 	call	thread_state_suspend
 	mv	a4, a0		/* Supply thread index */
 	li	a6, TEESMC_OPTEED_RETURN_CALL_DONE
 	li	a7, 0x4F505445
-	mv	a1, t2
-	mv	a2, t3
-	mv	a3, t4
+	mv	a1, s2
+	mv	a2, s3
+	mv	a3, s4
 	ecall
 	/* should not return */
 
