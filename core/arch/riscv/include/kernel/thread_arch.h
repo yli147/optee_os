@@ -125,6 +125,7 @@ struct thread_trap_regs {
 	unsigned long epc;
 	unsigned long status;
 	unsigned long satp;
+	unsigned long ie;
 } __aligned(16);
 
 struct thread_scall_regs {
@@ -175,7 +176,9 @@ struct thread_ctx_regs {
 	unsigned long t4;
 	unsigned long t5;
 	unsigned long t6;
+	unsigned long epc;
 	unsigned long status;
+	unsigned long ie;
 };
 
 struct user_mode_ctx;
@@ -189,8 +192,8 @@ struct user_mode_ctx;
 #define CSR_XIE_TIE	BIT64(IRQ_XTIMER)
 #define CSR_XIE_EIE	BIT64(IRQ_XEXT)
 
-#define THREAD_EXCP_FOREIGN_INTR	CSR_XIE_EIE
-#define THREAD_EXCP_NATIVE_INTR	        (CSR_XIE_SIE | CSR_XIE_TIE)
+#define THREAD_EXCP_FOREIGN_INTR	(CSR_XIE_TIE)
+#define THREAD_EXCP_NATIVE_INTR		(CSR_XIE_EIE)
 #define THREAD_EXCP_ALL			(THREAD_EXCP_FOREIGN_INTR |\
 					 THREAD_EXCP_NATIVE_INTR)
 

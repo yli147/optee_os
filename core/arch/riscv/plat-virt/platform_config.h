@@ -36,6 +36,14 @@
 #define UART0_BASE		0x10000000
 #endif
 #define UART0_IRQ		0x0a
+/* UART1 */
+#ifndef UART1_BASE
+#define UART1_BASE		0x1000A000
+#endif
+#define UART1_IRQ		0x0c
+
+/* Foreign interrupt */
+#define FOREIGN_IRQ             0x0f
 
 /* RTC */
 #ifndef RTC_BASE

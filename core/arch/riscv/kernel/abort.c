@@ -238,7 +238,7 @@ static void handle_user_mode_panic(struct abort_info *ai)
 	ai->regs->a2 = 0xdeadbeef;
 	ai->regs->ra = (vaddr_t)thread_unwind_user_mode;
 	ai->regs->sp = thread_get_saved_thread_sp();
-	ai->regs->status = read_csr(CSR_XSTATUS);
+	ai->regs->status = xstatus_for_xret(true, PRV_S);
 
 	thread_exit_user_mode(ai->regs->a0, ai->regs->a1, ai->regs->a2,
 			      ai->regs->a3, ai->regs->sp, ai->regs->ra,
@@ -272,7 +272,6 @@ bool abort_is_user_exception(struct abort_info *ai __unused)
 #if defined(CFG_WITH_VFP) && defined(CFG_WITH_USER_TA)
 static bool is_vfp_fault(struct abort_info *ai)
 {
-	/* Implement */
 	return false;
 }
 #else /*CFG_WITH_VFP && CFG_WITH_USER_TA*/
@@ -352,6 +351,7 @@ static enum fault_type get_fault_type(struct abort_info *ai)
 
 void abort_handler(uint32_t abort_type, struct thread_abort_regs *regs)
 {
+	uint32_t exceptions = thread_mask_exceptions(THREAD_EXCP_ALL);
 	struct abort_info ai;
 
 	set_abort_info(abort_type, regs, &ai);
@@ -391,4 +391,6 @@ void abort_handler(uint32_t abort_type, struct thread_abort_regs *regs)
 		handle_user_mode_panic(&ai);
 		break;
 	}
+
+	thread_unmask_exceptions(exceptions);
 }

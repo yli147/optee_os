@@ -71,9 +71,18 @@
 .endm
 
 .macro set_satp
+	/*
+	 * a0 = core_pos
+	 * a2 = tcr_el1
+	 */
+	csrr	a0, CSR_XSCRATCH
 	la	a1, boot_mmu_config
-	LDR	a0, CORE_MMU_CONFIG_SATP(a1)
-	csrw	CSR_SATP, a0
+	addi	a1, a1, CORE_MMU_CONFIG_SATP
+	li	a2, CORE_MMU_CONFIG_SATP_SIZE
+	mul	a0, a0, a2
+	add	a1, a1, a0
+	LDR	a2, 0(a1)
+	csrw	CSR_SATP, a2
 	sfence.vma	zero, zero
 .endm
 
@@ -148,7 +157,6 @@ FUNC _start , :
 #else
 	mv	s1, a1		/* Save device tree address into s1 */
 #endif
-	bnez	a0, reset_secondary
 	jal	reset_primary
 	j	.
 END_FUNC _start
@@ -221,6 +229,11 @@ UNWIND(	.cantunwind)
 	flush_cpu_semaphores
 	wait_secondary
 
+	/*
+	 * Clear current thread id now to allow the thread to be reused on
+	 * next entry. Matches the thread_init_boot_thread in
+	 * boot.c.
+	 */
 	jal	thread_clr_boot_thread
 
 	li	a0, TEEABI_OPTEED_RETURN_ENTRY_DONE
@@ -228,17 +241,31 @@ UNWIND(	.cantunwind)
 	j	thread_return_to_udomain
 END_FUNC reset_primary
 
-LOCAL_FUNC reset_secondary , : , .identity_map
+FUNC reset_secondary , : , .identity_map
 UNWIND(	.cantunwind)
 	wait_primary
+	/* Save the return address */
+	mv	s0, ra
+
+.option push
+.option norelax
+	la	gp, __global_pointer$
+.option pop
+#ifdef CFG_RISCV_M_MODE
+	csrr	a0, CSR_MHARTID
+#endif
+	csrw	CSR_XSCRATCH, a0
+
 	csrw	CSR_SATP, zero
-	set_sp
-	set_tp
 	set_satp
+	set_tp
+	set_sp
 	cpu_is_ready
 
 	jal	boot_init_secondary
-	j	.
+	/* Restore the return address */
+	mv 	ra, s0
+	jr	ra
 END_FUNC reset_secondary
 
 LOCAL_FUNC unhandled_cpu , :

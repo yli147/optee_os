@@ -32,12 +32,15 @@ DEFINES
 	       offsetof(struct thread_core_local, flags));
 	DEFINE(THREAD_CORE_LOCAL_ABT_STACK_VA_END,
 	       offsetof(struct thread_core_local, abt_stack_va_end));
-	DEFINE(THREAD_CORE_LOCAL_X10, offsetof(struct thread_core_local, x[0]));
+	DEFINE(THREAD_CORE_LOCAL_X0, offsetof(struct thread_core_local, x[0]));
+	DEFINE(THREAD_CORE_LOCAL_X1, offsetof(struct thread_core_local, x[1]));
 
 	DEFINE(STACK_TMP_GUARD, STACK_CANARY_SIZE / 2 + STACK_TMP_OFFS);
 
 	/* struct thread_ctx_regs */
 	DEFINE(THREAD_CTX_REG_STATUS, offsetof(struct thread_ctx_regs, status));
+	DEFINE(THREAD_CTX_REG_EPC, offsetof(struct thread_ctx_regs, epc));
+	DEFINE(THREAD_CTX_REG_IE, offsetof(struct thread_ctx_regs, ie));
 	DEFINE(THREAD_CTX_REG_RA, offsetof(struct thread_ctx_regs, ra));
 	DEFINE(THREAD_CTX_REG_SP, offsetof(struct thread_ctx_regs, sp));
 	DEFINE(THREAD_CTX_REG_T0, offsetof(struct thread_ctx_regs, t0));
@@ -68,10 +71,12 @@ DEFINES
 	DEFINE(THREAD_TRAP_REG_T0, offsetof(struct thread_trap_regs, t0));
 	DEFINE(THREAD_TRAP_REG_S0, offsetof(struct thread_trap_regs, s0));
 	DEFINE(THREAD_TRAP_REG_A0, offsetof(struct thread_trap_regs, a0));
+	DEFINE(THREAD_TRAP_REG_S2, offsetof(struct thread_trap_regs, s2));
 	DEFINE(THREAD_TRAP_REG_T3, offsetof(struct thread_trap_regs, t3));
 	DEFINE(THREAD_TRAP_REG_EPC, offsetof(struct thread_trap_regs, epc));
 	DEFINE(THREAD_TRAP_REG_STATUS,
 	       offsetof(struct thread_trap_regs, status));
+	DEFINE(THREAD_TRAP_REG_IE, offsetof(struct thread_trap_regs, ie));
 	DEFINE(THREAD_TRAP_REGS_SIZE, sizeof(struct thread_trap_regs));
 
 	/* struct thread_scall_regs */
@@ -85,7 +90,8 @@ DEFINES
 	/* struct core_mmu_config */
 	DEFINE(CORE_MMU_CONFIG_SIZE, sizeof(struct core_mmu_config));
 	DEFINE(CORE_MMU_CONFIG_SATP,
-	       offsetof(struct core_mmu_config, satp));
+	       offsetof(struct core_mmu_config, satp[0]));
+	DEFINE(CORE_MMU_CONFIG_SATP_SIZE, sizeof(unsigned long));
 
 	/* struct thread_abi_args */
 	DEFINE(THREAD_ABI_ARGS_A0, offsetof(struct thread_abi_args, a0));

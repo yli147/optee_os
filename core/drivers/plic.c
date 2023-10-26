@@ -52,12 +52,6 @@
 
 register_phys_mem_pgdir(MEM_AREA_IO_SEC, PLIC_BASE, PLIC_REG_SIZE);
 
-struct plic_data {
-	vaddr_t plic_base;
-	size_t max_it;
-	struct itr_chip chip;
-};
-
 static struct plic_data plic_data __nex_bss;
 
 /*

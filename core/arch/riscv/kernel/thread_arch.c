@@ -10,6 +10,8 @@
 
 #include <assert.h>
 #include <config.h>
+#include <drivers/plic.h>
+#include <generated/asm-defines.h>
 #include <io.h>
 #include <keep.h>
 #include <kernel/asan.h>
@@ -30,8 +32,34 @@
 #include <mm/tee_mm.h>
 #include <mm/vm.h>
 #include <riscv.h>
+#include <sbi.h>
+#include <tee/optee_abi.h>
+#include <tee/teeabi_opteed.h>
+#include <tee/teeabi_opteed_macros.h>
 #include <trace.h>
 #include <util.h>
+
+static void __nostackcheck thread_dump_ctx(struct thread_ctx_regs *ctx)
+{
+#define PRILX               "016lx"
+	EMSG("epc=0x%" PRILX " status=0x%" PRILX "\n", ctx->epc, ctx->status);
+	EMSG("ra=0x%" PRILX " sp=0x%" PRILX "\n", ctx->ra, ctx->sp);
+	EMSG("gp=0x%" PRILX " tp=0x%" PRILX "\n", ctx->gp, ctx->tp);
+	EMSG("s0=0x%" PRILX " s1=0x%" PRILX "\n", ctx->s0, ctx->s1);
+	EMSG("a0=0x%" PRILX " a1=0x%" PRILX "\n", ctx->a0, ctx->a1);
+	EMSG("a2=0x%" PRILX " a3=0x%" PRILX "\n", ctx->a2, ctx->a3);
+	EMSG("a4=0x%" PRILX " a5=0x%" PRILX "\n", ctx->a4, ctx->a5);
+	EMSG("a6=0x%" PRILX " a7=0x%" PRILX "\n", ctx->a6, ctx->a7);
+	EMSG("s2=0x%" PRILX " s3=0x%" PRILX "\n", ctx->s2, ctx->s3);
+	EMSG("s4=0x%" PRILX " s5=0x%" PRILX "\n", ctx->s4, ctx->s5);
+	EMSG("s6=0x%" PRILX " s7=0x%" PRILX "\n", ctx->s6, ctx->s7);
+	EMSG("s8=0x%" PRILX " s9=0x%" PRILX "\n", ctx->s8, ctx->s9);
+	EMSG("s10=0x%" PRILX " s11=0x%" PRILX "\n", ctx->s10, ctx->s11);
+	EMSG("t0=0x%" PRILX " t1=0x%" PRILX "\n", ctx->t0, ctx->t1);
+	EMSG("t2=0x%" PRILX " t3=0x%" PRILX "\n", ctx->t2, ctx->t3);
+	EMSG("t4=0x%" PRILX " t5=0x%" PRILX "\n", ctx->t4, ctx->t5);
+	EMSG("t6=0x%" PRILX "\n", ctx->t6);
+}
 
 /*
  * This function is called as a guard after each ABI call which is not
@@ -99,7 +127,7 @@ static void thread_lazy_restore_ns_vfp(void)
 static void setup_unwind_user_mode(struct thread_scall_regs *regs)
 {
 	regs->ra = (uintptr_t)thread_unwind_user_mode;
-	regs->status = read_csr(CSR_XSTATUS);
+	regs->status = xstatus_for_xret(true, PRV_S);
 	regs->sp = thread_get_saved_thread_sp();
 }
 
@@ -111,7 +139,7 @@ static void thread_unhandled_trap(struct thread_trap_regs *regs __unused,
 	panic();
 }
 
-void  thread_scall_handler(struct thread_scall_regs *regs)
+void thread_scall_handler(struct thread_scall_regs *regs)
 {
 	struct ts_session *sess = NULL;
 	uint32_t state = 0;
@@ -173,8 +201,10 @@ static void copy_trap_to_scall(struct thread_trap_regs *trap_regs,
 
 static void thread_user_ecall_handler(struct thread_trap_regs *trap_regs)
 {
+	uint32_t exceptions = thread_mask_exceptions(THREAD_EXCP_ALL);
 	struct thread_scall_regs scall_regs;
 	struct thread_core_local *l = thread_get_core_local();
+	thread_unmask_exceptions(exceptions);
 	int ct = l->curr_thread;
 
 	copy_trap_to_scall(trap_regs, &scall_regs);
@@ -200,6 +230,47 @@ static void copy_trap_to_abort(struct thread_trap_regs *trap_regs,
 {
 	*abort_regs = (struct thread_abort_regs) {
 		.status = trap_regs->status,
+		.ra = trap_regs->ra,
+		.sp = trap_regs->sp,
+		.gp = trap_regs->gp,
+		.tp = trap_regs->tp,
+		.t0 = trap_regs->t0,
+		.t1 = trap_regs->t1,
+		.t2 = trap_regs->t2,
+		.s0 = trap_regs->s0,
+		.s1 = trap_regs->s1,
+		.a0 = trap_regs->a0,
+		.a1 = trap_regs->a1,
+		.a2 = trap_regs->a2,
+		.a3 = trap_regs->a3,
+		.a4 = trap_regs->a4,
+		.a5 = trap_regs->a5,
+		.a6 = trap_regs->a6,
+		.a7 = trap_regs->a7,
+		.s2 = trap_regs->s2,
+		.s3 = trap_regs->s3,
+		.s4 = trap_regs->s4,
+		.s5 = trap_regs->s5,
+		.s6 = trap_regs->s6,
+		.s7 = trap_regs->s7,
+		.s8 = trap_regs->s8,
+		.s9 = trap_regs->s9,
+		.s10 = trap_regs->s10,
+		.s11 = trap_regs->s11,
+		.t3 = trap_regs->t3,
+		.t4 = trap_regs->t4,
+		.t5 = trap_regs->t5,
+		.t6 = trap_regs->t6,
+	};
+}
+
+void copy_trap_to_ctx(struct thread_trap_regs *trap_regs,
+		      struct thread_ctx_regs *ctx_regs)
+{
+	*ctx_regs = (struct thread_ctx_regs) {
+		.status = trap_regs->status,
+		.epc = trap_regs->epc,
+		.ie = trap_regs->ie,
 		.ra = trap_regs->ra,
 		.sp = trap_regs->sp,
 		.gp = trap_regs->gp,
@@ -261,23 +332,30 @@ static void thread_exception_handler(unsigned long cause,
 	}
 }
 
-static void thread_irq_handler(void)
+static void thread_irq_handler(struct thread_trap_regs *regs, bool user)
 {
+	struct itr_chip *chip = interrupt_get_main_chip();
+	struct plic_data *pd = container_of(chip, struct plic_data, chip);
+
 	interrupt_main_handler();
+	//if (pd->got_foreign_it)
+	//	thread_foreign_interrupt_handler(regs, user);
 }
 
 static void thread_interrupt_handler(unsigned long cause,
-				     struct thread_trap_regs *regs)
+				     struct thread_trap_regs *regs, bool user)
 {
 	switch (cause & LONG_MAX) {
 	case IRQ_XTIMER:
-		clear_csr(CSR_XIE, CSR_XIE_TIE);
+		//EMSG("Timer foreign INTR");
+		thread_foreign_interrupt_handler(regs, user);
+		//clear_csr(CSR_XIE, CSR_XIE_TIE);
 		break;
 	case IRQ_XSOFT:
 		thread_unhandled_trap(regs, cause);
 		break;
 	case IRQ_XEXT:
-		thread_irq_handler();
+		thread_irq_handler(regs, user);
 		break;
 	default:
 		thread_unhandled_trap(regs, cause);
@@ -293,7 +371,7 @@ void thread_trap_handler(long cause, unsigned long epc __unused,
 	 * if the trap was caused by an interrupt.
 	 */
 	if (cause < 0)
-		thread_interrupt_handler(cause, regs);
+		thread_interrupt_handler(cause, regs, user);
 	/*
 	 * Otherwise, cause is never written by the implementation,
 	 * though it may be explicitly written by software.
@@ -302,17 +380,45 @@ void thread_trap_handler(long cause, unsigned long epc __unused,
 		thread_exception_handler(cause, regs);
 }
 
+unsigned long xstatus_for_xret(uint8_t pie, uint8_t pp)
+{
+	unsigned long xstatus = read_csr(CSR_XSTATUS);
+
+	assert(pp == PRV_M || pp == PRV_S || pp == PRV_U);
+
+#ifdef RV32
+	xstatus = set_field_u32(xstatus, CSR_XSTATUS_IE, 0);
+	xstatus = set_field_u32(xstatus, CSR_XSTATUS_PIE, pie);
+	xstatus = set_field_u32(xstatus, CSR_XSTATUS_SPP, pp);
+#else	/* RV64 */
+	xstatus = set_field_u64(xstatus, CSR_XSTATUS_IE, 0);
+	xstatus = set_field_u64(xstatus, CSR_XSTATUS_PIE, pie);
+	xstatus = set_field_u64(xstatus, CSR_XSTATUS_SPP, pp);
+#endif
+
+	return xstatus;
+}
+
 static void init_regs(struct thread_ctx *thread, uint32_t a0, uint32_t a1,
 		      uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5,
 		      uint32_t a6, uint32_t a7, void *pc)
 {
-	thread->regs.ra = (uintptr_t)pc;
+	memset(&thread->regs, 0, sizeof(struct thread_ctx_regs));
+
+	thread->regs.epc = (uintptr_t)pc;
 
 	/* Set up xstatus */
-	thread->regs.status = read_csr(CSR_XSTATUS);
+	thread->regs.status = xstatus_for_xret(true, PRV_S);
+
+	/* Enable native interrupt */
+	thread->regs.ie = THREAD_EXCP_NATIVE_INTR;
 
 	/* Reinitialize stack pointer */
 	thread->regs.sp = thread->stack_va_end;
+
+	/* Set up GP and TP */
+	thread->regs.gp = read_gp();
+	thread->regs.tp = read_tp();
 
 	/*
 	 * Copy arguments into context. This will make the
@@ -362,6 +468,9 @@ static void __thread_alloc_and_run(uint32_t a0, uint32_t a1, uint32_t a2,
 	thread_lazy_save_ns_vfp();
 
 	l->flags &= ~THREAD_CLF_TMP;
+
+	//EMSG("status=0x%lX", threads[n].regs.status);
+	//thread_dump_ctx(&threads[n].regs);
 
 	thread_resume(&threads[n].regs);
 	/*NOTREACHED*/
@@ -422,10 +531,12 @@ static bool is_user_mode(struct thread_ctx_regs *regs)
 
 vaddr_t thread_get_saved_thread_sp(void)
 {
+	uint32_t exceptions = thread_mask_exceptions(THREAD_EXCP_ALL);
 	struct thread_core_local *l = thread_get_core_local();
 	int ct = l->curr_thread;
 
 	assert(ct != THREAD_ID_INVALID);
+	thread_unmask_exceptions(exceptions);
 	return threads[ct].kern_sp;
 }
 
@@ -462,6 +573,13 @@ void thread_resume_from_rpc(uint32_t thread_id, uint32_t a0, uint32_t a1,
 		tee_ta_update_session_utime_resume();
 
 	/*
+	 * We may resume thread at another hart, so we need to re-assign value
+	 * of tp to be current hart's thread_core_local.
+	 */
+	if (!is_user_mode(&threads[n].regs))
+		threads[n].regs.tp = read_tp();
+
+	/*
 	 * Return from RPC to request service of a foreign interrupt must not
 	 * get parameters from non-secure world.
 	 */
@@ -476,6 +594,10 @@ void thread_resume_from_rpc(uint32_t thread_id, uint32_t a0, uint32_t a1,
 		ftrace_resume();
 
 	l->flags &= ~THREAD_CLF_TMP;
+
+	//EMSG("status=0x%lX, epc=0x%lX", threads[n].regs.status, threads[n].regs.epc);
+	//thread_dump_ctx(&threads[n].regs);
+
 	thread_resume(&threads[n].regs);
 	/*NOTREACHED*/
 	panic();
@@ -526,7 +648,7 @@ int thread_state_suspend(uint32_t flags, unsigned long status, vaddr_t pc)
 	assert(threads[ct].state == THREAD_STATE_ACTIVE);
 	threads[ct].flags |= flags;
 	threads[ct].regs.status = status;
-	threads[ct].regs.ra = pc;
+	threads[ct].regs.epc = pc;
 	threads[ct].state = THREAD_STATE_SUSPENDED;
 
 	threads[ct].have_user_map = core_mmu_user_mapping_is_active();
@@ -536,6 +658,9 @@ int thread_state_suspend(uint32_t flags, unsigned long status, vaddr_t pc)
 		core_mmu_get_user_map(&threads[ct].user_map);
 		core_mmu_set_user_map(NULL);
 	}
+
+	//EMSG("flag=0x%X, status=0x%lX, epc=0x%lX", threads[ct].flags, status, pc);
+	//thread_dump_ctx(&threads[ct].regs);
 
 	l->curr_thread = THREAD_ID_INVALID;
 
@@ -602,7 +727,7 @@ void thread_init_per_cpu(void)
 static void set_ctx_regs(struct thread_ctx_regs *regs, unsigned long a0,
 			 unsigned long a1, unsigned long a2, unsigned long a3,
 			 unsigned long user_sp, unsigned long entry_func,
-			 unsigned long status,
+			 unsigned long status, unsigned long ie,
 			 struct thread_pauth_keys *keys __unused)
 {
 	*regs = (struct thread_ctx_regs){
@@ -610,9 +735,11 @@ static void set_ctx_regs(struct thread_ctx_regs *regs, unsigned long a0,
 		.a1 = a1,
 		.a2 = a2,
 		.a3 = a3,
+		.s0 = 0,
 		.sp = user_sp,
 		.ra = entry_func,
-		.status = status
+		.status = status,
+		.ie = ie,
 	};
 }
 
@@ -624,21 +751,31 @@ uint32_t thread_enter_user_mode(unsigned long a0, unsigned long a1,
 				uint32_t *exit_status0,
 				uint32_t *exit_status1)
 {
-	unsigned long status = 0;
+	unsigned long status = 0, ie = 0;
 	uint32_t exceptions = 0;
 	uint32_t rc = 0;
 	struct thread_ctx_regs *regs = NULL;
 
 	tee_ta_update_session_utime_resume();
 
+	/* Read current interrupt masks */
+	ie = read_csr(CSR_XIE);
+
+	/*
+	 * Mask all exceptions, the CSR_XSTATUS.IE will be set from
+	 * setup_unwind_user_mode() after exiting.
+	 */
 	exceptions = thread_mask_exceptions(THREAD_EXCP_ALL);
 	regs = thread_get_ctx_regs();
-	status = read_csr(CSR_XSTATUS);
-	status |= CSR_XSTATUS_PIE;	/* Previous interrupt is enabled */
-	status = set_field_u64(status, CSR_XSTATUS_SPP, PRV_U);
-	set_ctx_regs(regs, a0, a1, a2, a3, user_sp, entry_func, status, NULL);
+	status = xstatus_for_xret(true, PRV_U);
+	set_ctx_regs(regs, a0, a1, a2, a3, user_sp, entry_func, status, ie, NULL);
 	rc = __thread_enter_user_mode(regs, exit_status0, exit_status1);
 	thread_unmask_exceptions(exceptions);
 
 	return rc;
+}
+
+void __thread_rpc(uint32_t rv[THREAD_RPC_NUM_ARGS])
+{
+	thread_rpc_xstatus(rv, xstatus_for_xret(false, PRV_S));
 }

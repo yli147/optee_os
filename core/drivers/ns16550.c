@@ -114,6 +114,12 @@ void ns16550_init(struct ns16550_data *pd, paddr_t base, uint8_t io_width,
 	pd->reg_shift = reg_shift;
 	pd->chip.ops = &ns16550_ops;
 
+	vaddr_t vbase = io_pa_or_va(&pd->base,
+				    (UART_IER << pd->reg_shift) + pd->io_width);
+
+	/* Enable interrupts for receive and receive timeout */
+	serial_out(vbase + (UART_IER << pd->reg_shift), pd->io_width, 0x01);
+
 	/*
 	 * Do nothing, uart driver shared with normal world,
 	 * everything for uart driver initialization is done in bootloader.

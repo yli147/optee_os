@@ -10,6 +10,13 @@
 #include <kernel/misc.h>
 #include <platform_config.h>
 
+struct plic_data {
+	vaddr_t plic_base;
+	size_t max_it;
+	struct itr_chip chip;
+	bool got_foreign_it;
+};
+
 void plic_init(paddr_t plic_base_pa);
 void plic_hart_init(void);
 void plic_it_handle(void);
