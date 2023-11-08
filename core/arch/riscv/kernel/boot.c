@@ -208,7 +208,7 @@ void boot_init_primary_late(unsigned long fdt,
 	IMSG("Primary CPU initialized");
 
 #ifdef CFG_RISCV_S_MODE
-	//start_secondary_cores();
+	start_secondary_cores();
 #endif
 }
 

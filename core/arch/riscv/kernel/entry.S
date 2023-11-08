@@ -157,6 +157,9 @@ FUNC _start , :
 #else
 	mv	s1, a1		/* Save device tree address into s1 */
 #endif
+#ifdef CFG_RISCV_M_MODE
+	bnez	a0, reset_secondary
+#endif
 	jal	reset_primary
 	j	.
 END_FUNC _start
@@ -178,7 +181,7 @@ UNWIND(	.cantunwind)
 	bne	t0, t1, 0b
 1:
 #ifdef CFG_RISCV_S_MODE
-	lla	t0, _start
+	lla	t0, reset_secondary
 	lla	t1, start_addr
 	STR	t0, (t1)
 #endif
@@ -244,17 +247,14 @@ END_FUNC reset_primary
 FUNC reset_secondary , : , .identity_map
 UNWIND(	.cantunwind)
 	wait_primary
-	/* Save the return address */
-	mv	s0, ra
 
+#ifdef CFG_RISCV_S_MODE
 .option push
 .option norelax
 	la	gp, __global_pointer$
 .option pop
-#ifdef CFG_RISCV_M_MODE
-	csrr	a0, CSR_MHARTID
-#endif
 	csrw	CSR_XSCRATCH, a0
+#endif
 
 	csrw	CSR_SATP, zero
 	set_satp
@@ -263,9 +263,13 @@ UNWIND(	.cantunwind)
 	cpu_is_ready
 
 	jal	boot_init_secondary
-	/* Restore the return address */
-	mv 	ra, s0
-	jr	ra
+
+#ifdef CFG_RISCV_S_MODE
+	/* Return to untrusted domain */
+	li	a0, TEEABI_OPTEED_RETURN_ON_DONE
+	j	thread_return_to_udomain
+#endif
+	j	.
 END_FUNC reset_secondary
 
 LOCAL_FUNC unhandled_cpu , :
