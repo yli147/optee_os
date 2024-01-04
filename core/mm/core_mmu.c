@@ -1363,7 +1363,7 @@ void __weak core_init_mmu_map(unsigned long seed, struct core_mmu_config *cfg)
 
 	COMPILE_TIME_ASSERT(CFG_MMAP_REGIONS >= 13);
 	offs = init_mem_map(tmp_mmap, ARRAY_SIZE(static_memory_map), seed);
-
+	IMSG("### core_init_mmu_map ###");
 	check_mem_map(tmp_mmap);
 	core_init_mmu(tmp_mmap);
 	dump_xlat_table(0x0, CORE_MMU_BASE_TABLE_LEVEL);
