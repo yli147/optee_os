@@ -59,13 +59,18 @@
 
 #ifndef __ASSEMBLER__
 
+extern unsigned long boot_cpu_hartid;
 static inline __noprof unsigned long read_hartid(void)
 {
+#if 0
 	unsigned long hartid;
 
 	asm volatile("csrr %0, 0xdc0" : "=r" (hartid));
 
 	return hartid;
+#else
+	return boot_cpu_hartid;
+#endif
 }
 
 static inline __noprof void mb(void)

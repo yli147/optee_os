@@ -23,6 +23,8 @@
 	mv	t0, \hartid_reg
 	li	t1, CFG_TEE_CORE_NB_CORE
 	bge	t0, t1, unhandled_cpu
+	la t1, boot_cpu_hartid
+	sw t0, 0(t1)
 	addi	t0, t0, 1
 	lw	t1, stack_tmp_stride
 	la	t2, stack_tmp

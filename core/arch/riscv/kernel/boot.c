@@ -41,6 +41,7 @@
 #include <kernel/vfp.h>
 #endif
 
+unsigned long boot_cpu_hartid;
 /*
  * In this file we're using unsigned long to represent physical pointers as
  * they are received in a single register when OP-TEE is initially entered.
