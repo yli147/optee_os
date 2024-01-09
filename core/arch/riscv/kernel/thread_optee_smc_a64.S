@@ -36,7 +36,8 @@ LOCAL_FUNC vector_std_smc_entry , : , .identity_map
 	 */
 	mv	a1, a0
 	li	a6, TEESMC_OPTEED_RETURN_CALL_DONE
-	li	a7, 0x4F505445
+	/* li	a7, 0x4F505445 */
+	li	a7, 0x52505859
 	ecall
 	/* ecall should not return */
 END_FUNC vector_std_smc_entry
@@ -60,7 +61,8 @@ LOCAL_FUNC vector_fast_smc_entry , : , .identity_map
 	ld  a5, THREAD_SMC_ARGS_A4(sp)
 	addi	sp, sp, 64
 	li	a6, TEESMC_OPTEED_RETURN_CALL_DONE
-	li	a7, 0x4F505445
+	/* li	a7, 0x4F505445 */
+	li	a7, 0x52505859
 	ecall
 	/* SMC should not return */
 END_FUNC vector_fast_smc_entry
@@ -70,7 +72,8 @@ LOCAL_FUNC vector_fiq_entry , : , .identity_map
 	call	thread_check_canaries
 	/* optee os should receive FIQ here*/
 	li	a6, TEESMC_OPTEED_RETURN_FIQ_DONE
-	li	a7, 0x4F505445
+	/* li	a7, 0x4F505445 */
+	li	a7, 0x52505859
 	ecall
 END_FUNC vector_fiq_entry
 
@@ -78,7 +81,8 @@ LOCAL_FUNC vector_cpu_on_entry , : , .identity_map
 	call	cpu_on_handler
 	mv	a1, a0
 	li	a6, TEESMC_OPTEED_RETURN_ON_DONE
-	li	a7, 0x4F505445
+	/* li	a7, 0x4F505445 */
+	li	a7, 0x52505859
 	ecall
 	/* SMC should not return */
 END_FUNC vector_cpu_on_entry
@@ -87,7 +91,8 @@ LOCAL_FUNC vector_cpu_off_entry , : , .identity_map
 	call	thread_cpu_off_handler
 	mv	a1, a0
 	li	a6, TEESMC_OPTEED_RETURN_OFF_DONE
-	li	a7, 0x4F505445
+	/* li	a7, 0x4F505445 */
+	li	a7, 0x52505859
 	ecall
 	/* SMC should not return */
 END_FUNC vector_cpu_off_entry
@@ -165,7 +170,8 @@ FUNC thread_std_smc_entry , :
 	li	a3, 0
 	li	a4, 0
 	li	a6, TEESMC_OPTEED_RETURN_CALL_DONE
-	li	a7, 0x4F505445
+	/* li	a7, 0x4F505445 */
+	li	a7, 0x52505859
 	ecall
 	/* should not return */
 END_FUNC thread_std_smc_entry
@@ -202,7 +208,8 @@ FUNC thread_rpc , :
 	call	thread_state_suspend
 	mv	a4, a0		/* Supply thread index */
 	li	a6, TEESMC_OPTEED_RETURN_CALL_DONE
-	li	a7, 0x4F505445
+	/* li	a7, 0x4F505445 */
+	li	a7, 0x52505859
 	mv	a1, s2
 	mv	a2, s3
 	mv	a3, s4
@@ -239,7 +246,8 @@ DECLARE_KEEP_PAGER thread_rpc
 FUNC thread_foreign_intr_exit , :
 	mv	a4, a0
 	li	a6, TEESMC_OPTEED_RETURN_CALL_DONE
-	li	a7, 0x4F505445
+	/* li	a7, 0x4F505445 */
+	li	a7, 0x52505859
 	li	a1, OPTEE_SMC_RETURN_RPC_FOREIGN_INTR
 	li	a2, 0
 	li	a3, 0

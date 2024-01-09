@@ -106,18 +106,64 @@ clear_bss:
 	 */
 	jal	thread_clr_boot_thread
 
+	/* SbiRpxySetShmem
+	* SBI CALL
+		@param a0 : Arg0  			<= PageSize 0x00001000 4KB
+		@param a1 : Arg1  			<= ShmemPhys 0xFE000000 
+		@param a2 : Arg2			<= 0x0
+		@param a3 : Arg3			<= 0x0
+		@param a4 : Arg4			<= 0x0
+		@param a5 : Arg5			<= 0x0
+		@param a6 : FunctionID     <= SBI_RPXY_SETUP_SHMEM 0x1
+		@param a7 : ExtensionId    <= SBI_EXT_RPXY 0x52505859
+	*/
+	li	a7, 0x52505859
+	li 	a6, 0x1
+    li 	a0, 0x00001000
+    li 	a1, 0xFE000000
+	li	a2, 0x0
+	li	a3, 0x0
+	li	a4, 0x0
+	li	a5, 0x0
+	ecall
+
 	/*
 	 * Pass the vector address returned from main_init
 	 * Compensate for the load offset since cpu_on_handler() is
 	 * called with MMU off.
 	 * CORE_MMU_CONFIG_LOAD_OFFSET = 16
+	 * SBI CALL
+		@param a0 : Pointer to Arg0  <= SBI_RPMI_MM_TRANSPORT_ID 0x0
+		@param a1 : Pointer to Arg1  <= SBI_RPMI_MM_SRV_GROUP 0x0A
+		@param a2 : Arg2			<= SBI_RPMI_MM_SRV_COMPLETE/TEESMC_OPTEED_RETURN_ENTRY_DONE 0x03
+		@param a3 : Arg3			<= message length 0x8
+		@param a4 : Arg4			<= boot_mmu_config
+		@param a5 : Arg5			<= thread_vector_table
+		@param a6 : FunctionID     <= SBI_RPXY_SEND_NORMAL_MSG 0x2
+		@param a7 : ExtensionId    <= SBI_EXT_RPXY 0x52505859
 	 */
 	la	s3, boot_mmu_config
 	ld	a0, 16(s3)
 	la	a1, thread_vector_table
 	sub	a1, a1, a0
-	li	a6, TEESMC_OPTEED_RETURN_ENTRY_DONE
-	li	a7, 0x4F505445
+	/* li	a6, TEESMC_OPTEED_RETURN_ENTRY_DONE */
+	/* li	a7, 0x4F505445 */
+	li	a7, 0x52505859
+	/* SBI_RPXY_SEND_NORMAL_MSG 0x2 */
+	li 	a6, 0x2
+	/* SBI_RPMI_MM_TRANSPORT_ID 0x0 */
+    li 	a0, 0x0
+	/* SBI_RPMI_MM_SRV_GROUP 0x0A */
+    li 	a1, 0x0A
+	/* SBI_RPMI_MM_SRV_COMPLETE 0x03 */
+	/* li	a2, TEESMC_OPTEED_RETURN_ENTRY_DONE */
+	li	a2, 0x03
+	/* li  a3, TEESMC_OPTEED_RETURN_ENTRY_DONE */
+	li  a3, 0x08
+	la	s4, boot_mmu_config
+	ld	a4, 16(s4)
+	la	a5, thread_vector_table
+	sub	a5, a5, a4
 	ecall
 	/* ecall should not return */
 END_FUNC _start
