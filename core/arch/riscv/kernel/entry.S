@@ -105,6 +105,13 @@ clear_bss:
 	 * boot.c.
 	 */
 	jal	thread_clr_boot_thread
+    
+	la	s3, boot_mmu_config
+	ld	a0, 16(s3)
+	la	a1, thread_vector_table
+	sub	a1, a1, a0
+
+	jal	DelegatedMainEntry
 
 	/*
 	 * Pass the vector address returned from main_init
@@ -112,10 +119,6 @@ clear_bss:
 	 * called with MMU off.
 	 * CORE_MMU_CONFIG_LOAD_OFFSET = 16
 	 */
-	la	s3, boot_mmu_config
-	ld	a0, 16(s3)
-	la	a1, thread_vector_table
-	sub	a1, a1, a0
 	li	a6, TEESMC_OPTEED_RETURN_ENTRY_DONE
 	li	a7, 0x4F505445
 	ecall

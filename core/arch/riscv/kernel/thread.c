@@ -715,13 +715,15 @@ uint32_t thread_enter_user_mode(unsigned long a0, unsigned long a1,
 
 	exceptions = thread_mask_exceptions(THREAD_EXCP_ALL);
 	regs = thread_get_ctx_regs();
-	status = read_sstatus();
+	// ?? ssstatus 有问题，应该是 0x40022;
+	write_sstatus(0x40022);
+	status = read_sstatus(); // 0x46022
 	set_ctx_regs(regs, a0, a1, a2, a3, user_sp, entry_func, status, NULL);
-	//__enable_user_access();
+//__enable_user_access();
 	regs->status |= BIT(18);
 	rc = __thread_enter_user_mode(regs, exit_status0, exit_status1);
 	regs->status &= ~BIT(18);
-//	__disable_user_access();
+//__disable_user_access();
 	thread_unmask_exceptions(exceptions);
 
 	return rc;
