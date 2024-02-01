@@ -111,7 +111,8 @@ clear_bss:
 	la	a1, thread_vector_table
 	sub	a1, a1, a0
 
-	jal	DelegatedMainEntry
+	call opteed_return_entry_done
+	call event_loop
 
 	/*
 	 * Pass the vector address returned from main_init

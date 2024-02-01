@@ -1064,30 +1064,18 @@ unsigned long rpmi_a4;
 unsigned long rpmi_a5;
 
 //struct rpmi_tee_rx aa;
-unsigned long DelegatedMainEntry(void *fdt __unused)
+unsigned long opteed_return_entry_done(void *fdt __unused)
 {
 	int ext; int fid; unsigned long arg0;
 	unsigned long arg1; unsigned long arg2;
 	unsigned long arg3; unsigned long arg4;
 	unsigned long arg5;
 	
-	//struct rpmi_tee_rx *rx = (struct rpmi_tee_rx *)(&aa);
 	// NSEC_SHM 0xf4000000..0xf41fffff pa 0xf1600000..0xf17fffff size 0x00200000 (pgdir)
 	struct rpmi_tee *rx = (struct rpmi_tee_rx *)(0xF41F0000);  
 	struct rpmi_tee *tx = (struct rpmi_tee_tx *)(0xF41F0000); 
 
 	//read_sstatus();
-	EMSG("#### DelegatedMainEntry where the initial sstatus is set ??? %x", read_sstatus());
-	ext = 0x52505859;
-	fid = 0x01;
-	arg0 = 0x00001000;
-	arg1 = 0xF17F0000;
-	arg2 = 0x0;
-	arg3 = 0x0;
-	arg4 = 0x0;
-	arg5 = 0x0;
-	sbi_ecall(ext, fid, arg0, arg1, arg2, arg3, arg4, arg5);
-
 	/*
 	 * Pass the vector address returned from main_init
 	 * Compensate for the load offset since cpu_on_handler() is
@@ -1104,6 +1092,16 @@ unsigned long DelegatedMainEntry(void *fdt __unused)
 		@param a7 : ExtensionId    <= SBI_EXT_RPXY 0x52505859
 	 */
 	ext = 0x52505859;
+	fid = 0x01;
+	arg0 = 0x00001000;
+	arg1 = 0xF17F0000;
+	arg2 = 0x0;
+	arg3 = 0x0;
+	arg4 = 0x0;
+	arg5 = 0x0;
+	sbi_ecall(ext, fid, arg0, arg1, arg2, arg3, arg4, arg5);
+
+	ext = 0x52505859;
 	fid = 0x02;
 	arg0 = 0x0;
     arg1 = 0x0A;
@@ -1111,74 +1109,12 @@ unsigned long DelegatedMainEntry(void *fdt __unused)
 	tx->a6 = TEESMC_OPTEED_RETURN_ENTRY_DONE;
 	tx->a0 = rpmi_a0;
 	tx->a1 = rpmi_a1;
-	EMSG("test_switch: TEESMC_OPTEED_RETURN_ENTRY_DONE END %x %x %x %x", arg4, arg5, rpmi_a0, rpmi_a1);
 	sbi_ecall(ext, fid, arg0, arg1, arg2, sizeof(struct rpmi_tee), 0, 0);
 
-static int fast_call = 0;
-while(1) {
-	if (GET_SMC_TYPE(rx->a0) == SMC_TYPE_FAST) {
-		EMSG("test_switch: SMC_TYPE_FAST");
-			struct thread_smc_args *smc_args = rx;
-			thread_handle_fast_smc(smc_args);
-		EMSG("test_switch: SMC_TYPE_FAST end");
-
-			ext = 0x52505859;
-			fid = 0x02;
-			arg0 = 0x0;
-			arg1 = 0x0A;
-			arg2 = 0x03; // TEESMC_OPTEED_RETURN_CALL_DONE;
-
-
-if(fast_call == 0) {
-		tx->a0 = 0x0;
-		tx->a1 = 0x0;
-		tx->a2 = 0xf1600000;
-		tx->a3 = 0x200000;
-		tx->a4 = 0x1;
-		fast_call++;	
-} else if(fast_call == 1) {
-		tx->a0 = 0x0;
-		tx->a1 = 0x7;
-		tx->a2 = 0x0;
-		tx->a3 = 0x0;
-		tx->a4 = 0x0;
-		fast_call++;
-} else if(fast_call == 2) {
-		tx->a0 = 0;
-		tx->a1 = 0;
-		tx->a2 = 0;
-		tx->a3 = 0;
-		tx->a4 = 0;
-		fast_call++;
-} 
-			tx->a6 = TEESMC_OPTEED_RETURN_CALL_DONE;
-			sbi_ecall(ext, fid, arg0, arg1, arg2, sizeof(struct rpmi_tee), 0, 0);
-	} else {
-		EMSG("test_switch: SMC_STD");
-		thread_handle_std_smc(rx->a1, rx->a2, rx->a3, rx->a4, rx->a5, rx->a6, rx->a0, 0x4f505445);
-		EMSG("test_switch: SMC_STD EXIT");
-		ext = 0x52505859;
-		fid = 0x02;
-		arg0 = 0x0;
-		arg1 = 0x0A;
-		arg2 = 0x03; // TEESMC_OPTEED_RETURN_CALL_DONE;
-		arg3 = 0x08;
-
-		tx->a1 = rpmi_a1;
-		tx->a2 = rpmi_a2;
-		tx->a3 = rpmi_a3;
-		tx->a4 = rpmi_a4;
-		tx->a6 = TEESMC_OPTEED_RETURN_CALL_DONE;
-
-
-		sbi_ecall(ext, fid, arg0, arg1, arg2, sizeof(struct rpmi_tee), 0, 0);
-	}
-
-	}
 	return 0;
 }
 
-unsigned long DelegatedStdSmcEntry(void *fdt __unused)
+unsigned long opteed_return_call_done(void *fdt __unused)
 {
 	int ext; int fid; unsigned long arg0;
 	unsigned long arg1; unsigned long arg2;
@@ -1202,7 +1138,6 @@ unsigned long DelegatedStdSmcEntry(void *fdt __unused)
 		@param a6 : FunctionID     <= SBI_RPXY_SEND_NORMAL_MSG 0x2
 		@param a7 : ExtensionId    <= SBI_EXT_RPXY 0x52505859
 	 */
-	EMSG("test_call_done: enter");
 	ext = 0x52505859;
 	fid = 0x02;
 	arg0 = 0x0;
@@ -1214,50 +1149,16 @@ unsigned long DelegatedStdSmcEntry(void *fdt __unused)
 	tx->a3 = rpmi_a3;
 	tx->a4 = rpmi_a4;
 	sbi_ecall(ext, fid, arg0, arg1, arg2, sizeof(struct rpmi_tee), 0, 0);
-	EMSG("test_call_done: debug 1");
 
-	while(1) {
-		//struct thread_smc_args *smc_args = rx;
-		//EMSG("SMC_TYPE_YIELD before thread_handle_std_smc 0x%x 0x%x 0x%x", rx->a0, rx->a1, rx->a2);
-		//EMSG("SMC_TYPE_YIELD before thread_handle_std_smc 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n", rx->a1, rx->a2, rx->a3, rx->a4, rx->a5, rx->a6, rx->a7, rx->a0);
-		EMSG("test_call_done: SMC_STD");
-		// thread_handle_std_smc(rx->a0, rx->a1, rx->a2, rx->a3, rx->a4, rx->a5, rx->a6, rx->a7);
-		// r0 is ext id
-		// r1 is func id 
-		thread_handle_std_smc(rx->a1, rx->a2, rx->a3, rx->a4, rx->a5, rx->a6, rx->a0, 0x4f505445);
-		EMSG("test_call_done: SMC_STD exit");
-		ext = 0x52505859;
-		fid = 0x02;
-		arg0 = 0x0;
-		arg1 = 0x0A;
-		arg2 = 0x03; // TEESMC_OPTEED_RETURN_CALL_DONE;
-		arg3 = 0x08;
-
-		tx->a6 = TEESMC_OPTEED_RETURN_CALL_DONE;
-		tx->a1 = rpmi_a1;
-		tx->a2 = rpmi_a2;
-		tx->a3 = rpmi_a3;
-		tx->a4 = rpmi_a4;
-
-		sbi_ecall(ext, fid, arg0, arg1, arg2, sizeof(struct rpmi_tee), 0, 0);
-
-			//optee_vector_table->yield_smc_entry);
-	}
 	return 0;
 }
 
-unsigned long mm;
-unsigned long nn;
-unsigned long oo;
-unsigned long pp;
-
-unsigned long DelegatedThreadRpcEntry(void *fdt __unused)
+unsigned long event_loop(void *fdt __unused)
 {
 	int ext; int fid; unsigned long arg0;
 	unsigned long arg1; unsigned long arg2;
 	unsigned long arg3; unsigned long arg4;
 	unsigned long arg5;
-	//struct rpmi_tee_rx *rx = (struct rpmi_tee_rx *)(&aa);
 	struct rpmi_tee *rx = (struct rpmi_tee_rx *)(0xF41F0000);  
 	struct rpmi_tee *tx = (struct rpmi_tee_tx *)(0xF41F0000); 
 	// struct rpmi_tee *tx = (struct rpmi_tee_tx *)(0xF41F0000); 
@@ -1276,27 +1177,40 @@ unsigned long DelegatedThreadRpcEntry(void *fdt __unused)
 		@param a6 : FunctionID     <= SBI_RPXY_SEND_NORMAL_MSG 0x2
 		@param a7 : ExtensionId    <= SBI_EXT_RPXY 0x52505859
 	 */
-	// EMSG("TEESMC_OPTEED_RETURN_CALL_DONE");
-	ext = 0x52505859;
-	fid = 0x02;
-	arg0 = 0x0;
-    arg1 = 0x0A;
-	arg2 = 0x03;
-	tx->a1 = mm;
-	tx->a2 = nn;
-	tx->a3 = oo;
-	tx->a4 = pp;
-	tx->a6 = TEESMC_OPTEED_RETURN_CALL_DONE;
-	EMSG("optee_return_done: enter");
-	//EMSG("TEESMC_OPTEED_RETURN_CALL_DONE END %x %x %x %x", tx->a1, tx->a2, tx->a3, tx->a4);
-	sbi_ecall(ext, fid, arg0, arg1, arg2, sizeof(struct rpmi_tee), 0, 0);
-	EMSG("optee_return_done: exit");
 
-	while(1) {
-		EMSG("optee_return_done: SMC_TYPE_STD enter");
+while(1) {
+if (GET_SMC_TYPE(rx->a0) == SMC_TYPE_FAST) {
+
+		struct thread_smc_args *smc_args = rx;
+		EMSG("test_switch: SMC_TYPE_FAST %x %x %x %x %x %x", rx->a1, rx->a2, rx->a3, rx->a4, rx->a5, rx->a6, rx->a0);
+			thread_handle_fast_smc(smc_args);
+		EMSG("test_switch: SMC_TYPE_FAST %x %x %x %x %x", smc_args->a0, smc_args->a1, smc_args->a2, smc_args->a3, smc_args->a4);
+
+			ext = 0x52505859;
+			fid = 0x02;
+			arg0 = 0x0;
+			arg1 = 0x0A;
+			arg2 = 0x03; // TEESMC_OPTEED_RETURN_CALL_DONE;
+
+		tx->a4 = smc_args->a3;
+		tx->a3 = smc_args->a2;
+		tx->a2 = smc_args->a1;
+		tx->a1 = smc_args->a0;
+		// tx->a0 = smc_args->a0;
+
+		tx->a6 = TEESMC_OPTEED_RETURN_CALL_DONE;
+			sbi_ecall(ext, fid, arg0, arg1, arg2, sizeof(struct rpmi_tee), 0, 0);
+	} else {
+		EMSG("test_switch: SMC_STD");
 		thread_handle_std_smc(rx->a1, rx->a2, rx->a3, rx->a4, rx->a5, rx->a6, rx->a0, 0x4f505445);
-		EMSG("optee_return_done: SMC_TYPE_STD enter");
-		ext = 0x52505859;
+		EMSG("test_switch: SMC_STD EXIT");
+		/*
+	 * Normally thread_handle_std_smc() should return via
+	 * thread_exit(), thread_rpc(), but if thread_handle_std_smc()
+	 * hasn't switched stack (error detected) it will do a normal "C"
+	 * return.
+	 */
+			ext = 0x52505859;
 		fid = 0x02;
 		arg0 = 0x0;
 		arg1 = 0x0A;
@@ -1310,8 +1224,9 @@ unsigned long DelegatedThreadRpcEntry(void *fdt __unused)
 		tx->a4 = rpmi_a4;
 
 		sbi_ecall(ext, fid, arg0, arg1, arg2, sizeof(struct rpmi_tee), 0, 0);
-
-			//optee_vector_table->yield_smc_entry);
+	
 	}
+}
 	return 0;
+
 }

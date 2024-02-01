@@ -173,11 +173,14 @@ FUNC thread_std_smc_entry , :
 	sd a3, 0(t3)
 	la t3, rpmi_a4
 	sd a4, 0(t3)
-	call    DelegatedStdSmcEntry
-
+	// ret
+	call opteed_return_call_done
+	call event_loop
+	//ret
+	/*
 	li	a6, TEESMC_OPTEED_RETURN_CALL_DONE
 	li	a7, 0x4F505445
-	ecall
+	ecall */
 	/* should not return */
 END_FUNC thread_std_smc_entry
 
@@ -212,6 +215,20 @@ FUNC thread_rpc , :
 	li	a0, THREAD_FLAGS_COPY_ARGS_ON_RETURN
 	call	thread_state_suspend
 	mv	a4, a0		/* Supply thread index */
+
+	la t3, rpmi_a1
+	sd s2, 0(t3)
+	la t3, rpmi_a2
+	sd s3, 0(t3)
+	la t3, rpmi_a3
+	sd s4, 0(t3)
+	la t3, rpmi_a4
+	sd a4, 0(t3)
+	// ret
+	call opteed_return_call_done
+	call event_loop
+	//ret
+/* 
 	la t3, mm
 	sd s2, 0(t3)
 	la t3, nn
@@ -220,7 +237,7 @@ FUNC thread_rpc , :
 	sd s4, 0(t3)
 	la t3, pp
 	sd a4, 0(t3)
-	call DelegatedThreadRpcEntry
+	call DelegatedThreadRpcEntry */
 	li	a6, TEESMC_OPTEED_RETURN_CALL_DONE
 	li	a7, 0x4F505445
 	mv	a1, s2
