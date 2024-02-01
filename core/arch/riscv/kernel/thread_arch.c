@@ -338,8 +338,10 @@ static void thread_irq_handler(struct thread_trap_regs *regs, bool user)
 	struct plic_data *pd = container_of(chip, struct plic_data, chip);
 
 	interrupt_main_handler();
-	//if (pd->got_foreign_it)
-	//	thread_foreign_interrupt_handler(regs, user);
+	if (pd->got_foreign_it) {
+		pd->got_foreign_it = false;
+		thread_foreign_interrupt_handler(regs, user);
+	}
 }
 
 static void thread_interrupt_handler(unsigned long cause,
