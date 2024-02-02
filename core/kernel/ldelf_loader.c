@@ -144,8 +144,8 @@ TEE_Result ldelf_init_with_ldelf(struct ts_session *sess,
 	ldelf_sess_cleanup(sess);
 
 	if (panicked) {
+		EMSG("ldelf panicked %d", panic_code);
 		abort_print_current_ts();
-		EMSG("ldelf panicked");
 		return TEE_ERROR_GENERIC;
 	}
 	if (res) {

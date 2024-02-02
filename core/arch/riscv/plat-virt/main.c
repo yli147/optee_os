@@ -20,7 +20,9 @@ register_phys_mem_pgdir(MEM_AREA_IO_NSEC, UART0_BASE,
 #ifdef CFG_RISCV_PLIC
 void boot_primary_init_intc(void)
 {
+	IMSG("plic_init initializing %x", PLIC_BASE);
 	plic_init(PLIC_BASE);
+	IMSG("plic_init done");
 }
 
 void boot_secondary_init_intc(void)

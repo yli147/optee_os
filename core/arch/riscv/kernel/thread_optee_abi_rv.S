@@ -29,6 +29,8 @@
  */
 FUNC thread_return_to_udomain , :
 	/* Caller should provide arguments in a0~a5 */
+	call opteed_return_entry_done
+	call event_loop
 #if defined(CFG_RISCV_SBI)
 	li	a7, SBI_EXT_TEE		/* extension ID */
 	li	a6, 0			/* function ID (unused) */

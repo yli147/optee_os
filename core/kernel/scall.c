@@ -16,7 +16,7 @@
 #include <kernel/user_ta.h>
 #include <ldelf.h>
 #include <mm/vm.h>
-#include <speculation_barrier.h>
+//#include <speculation_barrier.h>
 #include <tee/svc_cache.h>
 #include <tee_syscall_numbers.h>
 #include <tee/tee_svc_cryp.h>
@@ -199,8 +199,8 @@ static syscall_t get_tee_syscall_func(size_t num)
 	if (num > TEE_SCN_MAX)
 		return (syscall_t)syscall_not_supported;
 
-	return load_no_speculate(&sc_table[num].fn, &sc_table[0].fn,
-				 &sc_table[TEE_SCN_MAX].fn + 1);
+	// return load_no_speculate(&sc_table[num].fn, &sc_table[0].fn,
+	//			 &sc_table[TEE_SCN_MAX].fn + 1);
 }
 
 bool scall_handle_user_ta(struct thread_scall_regs *regs)
@@ -246,8 +246,8 @@ static syscall_t get_ldelf_syscall_func(size_t num)
 	if (num > LDELF_SCN_MAX)
 		return (syscall_t)syscall_not_supported;
 
-	return load_no_speculate(&sc_table[num].fn, &sc_table[0].fn,
-				 &sc_table[LDELF_SCN_MAX].fn + 1);
+	// return load_no_speculate(&sc_table[num].fn, &sc_table[0].fn,
+	//			 &sc_table[LDELF_SCN_MAX].fn + 1);
 }
 
 bool scall_handle_ldelf(struct thread_scall_regs *regs)

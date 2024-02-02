@@ -285,12 +285,15 @@ void thread_init_boot_thread(void)
 
 void __nostackcheck thread_clr_boot_thread(void)
 {
+IMSG("thread_clr_boot_thread d0");	
 	struct thread_core_local *l = thread_get_core_local();
-
+IMSG("thread_clr_boot_thread d0");
 	assert(l->curr_thread >= 0 && l->curr_thread < CFG_NUM_THREADS);
 	assert(threads[l->curr_thread].state == THREAD_STATE_ACTIVE);
 	threads[l->curr_thread].state = THREAD_STATE_FREE;
+IMSG("thread_clr_boot_thread d1");	
 	l->curr_thread = THREAD_ID_INVALID;
+IMSG("thread_clr_boot_thread d2");
 }
 
 void __nostackcheck *thread_get_tmp_sp(void)

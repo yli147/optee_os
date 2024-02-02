@@ -108,9 +108,11 @@ plic_get_interrupt_enable(struct plic_data *pd, uint32_t source)
 static void plic_disable_interrupt(struct plic_data *pd, uint32_t source)
 {
 	uint32_t context = plic_get_context();
-
+	IMSG("plic_disable_interrupt %x", pd->plic_base);
+#if 0	
 	io_clrbits32(PLIC_ENABLE(pd->plic_base, source, context),
 		     BIT(source & 0x1f));
+#endif
 }
 
 static uint32_t __maybe_unused plic_get_threshold(struct plic_data *pd)
@@ -234,9 +236,10 @@ static void plic_init_base_addr(struct plic_data *pd, paddr_t plic_base_pa)
 	vaddr_t plic_base = 0;
 
 	assert(cpu_mmu_enabled());
-
+IMSG("plic_init_base_addr d0 %x", plic_base_pa);
 	plic_base = core_mmu_get_va(plic_base_pa, MEM_AREA_IO_SEC,
 				    PLIC_REG_SIZE);
+IMSG("plic_init_base_addr d1 %x", plic_base);					
 	if (!plic_base)
 		panic();
 
@@ -255,19 +258,25 @@ void plic_hart_init(void)
 
 void plic_init(paddr_t plic_base_pa)
 {
+#if 0
 	struct plic_data *pd = &plic_data;
 	size_t n = 0;
-
+IMSG("plic_init d0");
 	plic_init_base_addr(pd, plic_base_pa);
-
+IMSG("plic_init d1 %d", pd->max_it);
 	for (n = 0; n <= pd->max_it; n++) {
+		IMSG("plic_init d2 %d", n);
 		plic_disable_interrupt(pd, n);
+		IMSG("plic_init d21 %d", n);
 		plic_set_priority(pd, n, 1);
+		IMSG("plic_init d22 %d", n);
 	}
-
+IMSG("plic_init d23");
 	plic_set_threshold(pd, 0);
-
+IMSG("plic_init d3");
 	interrupt_main_init(&plic_data.chip);
+IMSG("plic_init d4");	
+#endif
 }
 
 void plic_it_handle(void)
