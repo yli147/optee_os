@@ -29,6 +29,18 @@
  */
 FUNC thread_return_to_udomain , :
 	/* Caller should provide arguments in a0~a5 */
+	la t3, event_id
+	sd a0, 0(t3)
+	la t3, value
+	sd a1, 0(t3)
+	la t3, expt1
+	sd a2, 0(t3)
+	la t3, expt2
+	sd a3, 0(t3)
+	la t3, expt3
+	sd a4, 0(t3)
+	call sbi_rpxy_event_complete
+
 #if defined(CFG_RISCV_SBI)
 	li	a7, SBI_EXT_TEE		/* extension ID */
 	li	a6, 0			/* function ID (unused) */

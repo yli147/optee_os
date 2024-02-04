@@ -179,3 +179,113 @@ void boot_init_secondary(unsigned long nsec_entry __unused)
 {
 	init_secondary_helper(PADDR_INVALID);
 }
+
+#include <sbi.h>
+#include <kernel/thread_private_arch.h>
+#include "tee/optee_abi.h"
+#include "tee/teeabi_opteed_macros.h"
+#include "tee/teeabi_opteed.h"
+
+#define SMC_TYPE_FAST                   UL(1)
+#define SMC_TYPE_YIELD                  UL(0)
+
+#define FUNCID_TYPE_SHIFT               U(31)
+#define FUNCID_TYPE_MASK                U(0x1)
+
+#define GET_SMC_TYPE(id)                (((id) >> FUNCID_TYPE_SHIFT) & \
+                                         FUNCID_TYPE_MASK)
+struct sbiret {
+        long error;
+        long value;
+};
+#define _sbi_ecall(ext, fid, arg0, arg1, arg2, arg3, arg4, arg5, ...) ({  \
+        register unsigned long a0 asm("a0") = (unsigned long)arg0; \
+        register unsigned long a1 asm("a1") = (unsigned long)arg1; \
+        register unsigned long a2 asm("a2") = (unsigned long)arg2; \
+        register unsigned long a3 asm("a3") = (unsigned long)arg3; \
+        register unsigned long a4 asm("a4") = (unsigned long)arg4; \
+        register unsigned long a5 asm("a5") = (unsigned long)arg5; \
+        register unsigned long a6 asm("a6") = (unsigned long)fid;  \
+        register unsigned long a7 asm("a7") = (unsigned long)ext;  \
+        asm volatile ("ecall" \
+                : "+r" (a0), "+r" (a1) \
+                : "r" (a2), "r" (a3), "r" (a4), "r" (a5), "r"(a6), "r"(a7) \
+                : "memory"); \
+        (struct sbiret){ .error = a0, .value = a1 }; \
+})
+
+#define sbi_ecall(...) _sbi_ecall(__VA_ARGS__, 0, 0, 0, 0, 0, 0, 0)
+
+unsigned long value;
+unsigned long expt1;
+unsigned long expt2;
+unsigned long expt3;
+unsigned long event_id;
+
+// NSEC_SHM 0xf4000000..0xf41fffff pa 0xf1600000..0xf17fffff size 0x00200000 (pgdir)
+#define TEE_NSCOMM_BUF_BASE 0xF47F0000
+
+void __noreturn sbi_rpxy_event_complete(void *fdt __unused)
+{
+	int ext; int fid; unsigned long arg0;
+	unsigned long arg1; unsigned long arg2;
+	struct thread_abi_args *txrx = (struct thread_abi_args *)(TEE_NSCOMM_BUF_BASE);  
+	/*
+	 * Pass the vector address returned from main_init
+	 * Compensate for the load offset since cpu_on_handler() is
+	 * called with MMU off.
+	 * CORE_MMU_CONFIG_LOAD_OFFSET = 16
+	 * SBI CALL
+		@param a0 : Pointer to Arg0  <= SBI_RPMI_MM_TRANSPORT_ID 0x0
+		@param a1 : Pointer to Arg1  <= SBI_RPMI_MM_SRV_GROUP 0x0A
+		@param a2 : Arg2			<= SBI_RPMI_MM_SRV_COMPLETE/TEESMC_OPTEED_RETURN_ENTRY_DONE 0x03
+		@param a3 : Arg3			<= message length 0x8
+		@param a4 : Arg4			<= boot_mmu_config   -- how to pass this to rpxy ??
+		@param a5 : Arg5			<= thread_vector_table  -- do we still need this ??
+		@param a6 : FunctionID     <= SBI_RPXY_SEND_NORMAL_MSG 0x2
+		@param a7 : ExtensionId    <= SBI_EXT_RPXY 0x52505859
+	 */
+	ext = 0x52505859;
+	fid = 0x02;
+	arg0 = 0x0;
+    arg1 = 0x0A;
+	arg2 = 0x03; //SBI_RPMI_MM_SRV_COMPLETE
+
+	txrx->a0 = value;
+	txrx->a1 = expt1;
+	txrx->a2 = expt2;
+	txrx->a3 = expt3;
+	txrx->a4 = event_id;
+	sbi_ecall(ext, fid, arg0, arg1, arg2, 0, 0, 0);
+
+	while(1) {
+		if (GET_SMC_TYPE(txrx->a0) == SMC_TYPE_FAST) {
+			struct thread_abi_args *smc_args = txrx;
+			thread_handle_fast_abi(smc_args);
+			ext = 0x52505859;
+			fid = 0x02;
+			arg0 = 0x0;
+			arg1 = 0x0A;
+			arg2 = 0x03; // SBI_RPMI_MM_SRV_COMPLETE;
+			txrx->a4 = 0;
+			txrx->a3 = smc_args->a3;
+			txrx->a2 = smc_args->a2;
+			txrx->a1 = smc_args->a1;
+			txrx->a0 = smc_args->a0;
+			sbi_ecall(ext, fid, arg0, arg1, arg2, 0, 0, 0);
+		} else {
+			thread_handle_std_abi(txrx->a0, txrx->a1, txrx->a2, txrx->a3, txrx->a4, txrx->a5, txrx->a6, txrx->a7);
+			ext = 0x52505859;
+			fid = 0x02;
+			arg0 = 0x0;
+			arg1 = 0x0A;
+			arg2 = 0x03; // SBI_RPMI_MM_SRV_COMPLETE;
+			txrx->a0 = value;
+			txrx->a1 = expt1;
+			txrx->a2 = expt2;
+			txrx->a3 = expt3;
+			txrx->a4 = event_id;
+			sbi_ecall(ext, fid, arg0, arg1, arg2, 0, 0, 0);
+		}
+	}
+}
