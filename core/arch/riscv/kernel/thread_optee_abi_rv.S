@@ -16,6 +16,48 @@
 #include <tee/teeabi_opteed.h>
 #include <tee/teeabi_opteed_macros.h>
 
+#if defined(CFG_RISCV_SBI_RPXY)
+/* NSEC_SHM 0xf4000000..0xf41fffff pa 0xf1600000..0xf17fffff size 0x00200000 (pgdir) */
+#define TEE_ABI_BASE_ADDR 0xf47f0000
+#define SBI_RPXY_TEE 0x52505859
+
+FUNC sbi_rpxy_event_handler , :
+_loop:
+	li  a0, TEE_ABI_BASE_ADDR
+	ld  t0, (a0)
+	srl t0, t0, 31
+	bnez t0, handle_fast_sbi
+	li  t0, TEE_ABI_BASE_ADDR
+	ld  a0, (t0)
+	ld  a1, 8(t0)
+	ld  a2, 16(t0)
+	ld  a3, 24(t0)
+	ld  a4, 32(t0)
+	ld  a5, 40(t0)
+	ld  a6, 48(t0)
+	ld  a7, 56(t0)
+	jal thread_handle_std_abi
+	li  t0, TEE_ABI_BASE_ADDR
+	mv	a1, a0
+	sd  a1, 0(t0)
+	sd  a2, 8(t0)
+	sd  a3, 16(t0)
+	sd  a4, 24(t0)
+	j handle_done
+handle_fast_sbi:
+	jal thread_handle_fast_abi
+handle_done:
+	li  a7, SBI_RPXY_TEE    /* SBI_EXT_RPXY */
+	li  a6, 0x02            /* SBI_EXT_RPXY_SEND_NORMAL_MESSAGE */
+	li  a0, 0x0             /* SBI_EXT_RPXY_TRANSPORT_ID */
+	li  a1, 0x0A            /* RPXY_TEE_SRV_GROUP */
+	li  a2, 0x03            /* RPXY_TEE_SRV_TEE_COMPLETE */
+	li  a3, 32
+	ecall
+	j _loop
+END_FUNC sbi_rpxy_event_handler
+#endif
+
 /*
  * Implement based on the transport method used to communicate between
  * untrusted domain and trusted domain. It could be an SBI/ECALL-based to
@@ -29,10 +71,33 @@
  */
 FUNC thread_return_to_udomain , :
 	/* Caller should provide arguments in a0~a5 */
+
 #if defined(CFG_RISCV_SBI)
+#if defined(CFG_RISCV_SBI_RPXY)
+	li  t0, TEEABI_OPTEED_RETURN_ENTRY_DONE
+	beq a0, t0, abi_entry
+	li  t0, TEE_ABI_BASE_ADDR
+	sd  a1, 0(t0)
+	sd  a2, 8(t0)
+	sd  a3, 16(t0)
+	sd  a4, 24(t0)
+	li  a3, 32
+	j abi_return
+abi_entry:
+	li  a3, 0
+abi_return:
+	li  a7, SBI_RPXY_TEE    /* SBI_EXT_RPXY */
+	li  a6, 0x02            /* SBI_EXT_RPXY_SEND_NORMAL_MESSAGE */
+	li  a0, 0x0             /* SBI_EXT_RPXY_TRANSPORT_ID */
+	li  a1, 0x0A            /* RPXY_TEE_SRV_GROUP */
+	li  a2, 0x03            /* RPXY_TEE_SRV_TEE_COMPLETE */
+	ecall
+	jal sbi_rpxy_event_handler
+#else
 	li	a7, SBI_EXT_TEE		/* extension ID */
 	li	a6, 0			/* function ID (unused) */
 	ecall
+#endif
 #else
 	/* Other protocol */
 #endif

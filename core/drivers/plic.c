@@ -108,9 +108,10 @@ plic_get_interrupt_enable(struct plic_data *pd, uint32_t source)
 static void plic_disable_interrupt(struct plic_data *pd, uint32_t source)
 {
 	uint32_t context = plic_get_context();
-
+#if 0	
 	io_clrbits32(PLIC_ENABLE(pd->plic_base, source, context),
 		     BIT(source & 0x1f));
+#endif
 }
 
 static uint32_t __maybe_unused plic_get_threshold(struct plic_data *pd)
@@ -255,6 +256,7 @@ void plic_hart_init(void)
 
 void plic_init(paddr_t plic_base_pa)
 {
+#if 0
 	struct plic_data *pd = &plic_data;
 	size_t n = 0;
 
@@ -268,6 +270,7 @@ void plic_init(paddr_t plic_base_pa)
 	plic_set_threshold(pd, 0);
 
 	interrupt_main_init(&plic_data.chip);
+#endif
 }
 
 void plic_it_handle(void)
