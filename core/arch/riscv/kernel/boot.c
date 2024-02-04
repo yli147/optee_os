@@ -262,7 +262,10 @@ unsigned long rpmi_a2;
 unsigned long rpmi_a3;
 unsigned long rpmi_a4;
 unsigned long rpmi_a5;
-
+unsigned long rpmi_a6;
+unsigned long rpmi_a7;
+unsigned long opteed_return_call_done(void *fdt __unused);
+static int i = 0;
 //struct rpmi_tee_rx aa;
 unsigned long opteed_return_entry_done(void *fdt __unused)
 {
@@ -272,9 +275,12 @@ unsigned long opteed_return_entry_done(void *fdt __unused)
 	unsigned long arg5;
 	
 	// NSEC_SHM 0xf4000000..0xf41fffff pa 0xf1600000..0xf17fffff size 0x00200000 (pgdir)
-	struct rpmi_tee *rx = (struct rpmi_tee_rx *)(0xF41F0000);  
-	struct rpmi_tee *tx = (struct rpmi_tee_tx *)(0xF41F0000); 
+	struct rpmi_tee *rx = (struct rpmi_tee_rx *)(0xF47F0000);  
+	struct rpmi_tee *tx = (struct rpmi_tee_tx *)(0xF47F0000); 
 
+if (i == 0) {
+	i++;
+//if (rpmi_a6 == TEEABI_OPTEED_RETURN_ENTRY_DONE) {
 	//csr_write(CSR_UIE, 0);
 	//write_csr(uie, 0);
 	//read_sstatus();
@@ -312,7 +318,9 @@ unsigned long opteed_return_entry_done(void *fdt __unused)
 	tx->a0 = rpmi_a0;
 	tx->a1 = rpmi_a1;
 	sbi_ecall(ext, fid, arg0, arg1, arg2, sizeof(struct rpmi_tee), 0, 0);
-
+} else {
+	opteed_return_call_done(0);
+}
 	return 0;
 }
 
@@ -322,8 +330,8 @@ unsigned long opteed_return_call_done(void *fdt __unused)
 	unsigned long arg1; unsigned long arg2;
 	unsigned long arg3; unsigned long arg4;
 	unsigned long arg5;
-	struct rpmi_tee *rx = (struct rpmi_tee_rx *)(0xF41F0000);  
-	struct rpmi_tee *tx = (struct rpmi_tee_tx *)(0xF41F0000); 
+	struct rpmi_tee *rx = (struct rpmi_tee_rx *)(0xF47F0000);  
+	struct rpmi_tee *tx = (struct rpmi_tee_tx *)(0xF47F0000); 
 	// struct rpmi_tee *tx = (struct rpmi_tee_tx *)(0xF41F0000); 
 	/*
 	 * Pass the vector address returned from main_init
@@ -346,10 +354,13 @@ unsigned long opteed_return_call_done(void *fdt __unused)
     arg1 = 0x0A;
 	arg2 = 0x03;
 	tx->a6 = TEEABI_OPTEED_RETURN_CALL_DONE;
+	
+	tx->a0 = rpmi_a0;
 	tx->a1 = rpmi_a1;
 	tx->a2 = rpmi_a2;
 	tx->a3 = rpmi_a3;
 	tx->a4 = rpmi_a4;
+	IMSG("opteed_return_call_done %x %x %x %x", rpmi_a1, rpmi_a2, rpmi_a3, rpmi_a4);
 	sbi_ecall(ext, fid, arg0, arg1, arg2, sizeof(struct rpmi_tee), 0, 0);
 	//write_csr(uie, 0);
 	return 0;

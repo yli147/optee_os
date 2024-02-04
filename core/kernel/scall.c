@@ -199,6 +199,7 @@ static syscall_t get_tee_syscall_func(size_t num)
 	if (num > TEE_SCN_MAX)
 		return (syscall_t)syscall_not_supported;
 
+	return sc_table[num].fn;
 	// return load_no_speculate(&sc_table[num].fn, &sc_table[0].fn,
 	//			 &sc_table[TEE_SCN_MAX].fn + 1);
 }
@@ -246,6 +247,7 @@ static syscall_t get_ldelf_syscall_func(size_t num)
 	if (num > LDELF_SCN_MAX)
 		return (syscall_t)syscall_not_supported;
 
+	return sc_table[num].fn;
 	// return load_no_speculate(&sc_table[num].fn, &sc_table[0].fn,
 	//			 &sc_table[LDELF_SCN_MAX].fn + 1);
 }

@@ -29,6 +29,20 @@
  */
 FUNC thread_return_to_udomain , :
 	/* Caller should provide arguments in a0~a5 */
+	la t3, rpmi_a0
+	sd a0, 0(t3)
+	la t3, rpmi_a1
+	sd a1, 0(t3)
+    la t3, rpmi_a2
+    sd a2, 0(t3)
+    la t3, rpmi_a3
+    sd a3, 0(t3)
+    la t3, rpmi_a4
+    sd a4, 0(t3)
+	la t3, rpmi_a5
+    sd a5, 0(t3)
+	la t3, rpmi_a6
+    sd a6, 0(t3)
 	call opteed_return_entry_done
 	call event_loop
 #if defined(CFG_RISCV_SBI)
