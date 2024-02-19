@@ -255,6 +255,7 @@ void plic_hart_init(void)
 
 void plic_init(paddr_t plic_base_pa)
 {
+#if 0
 	struct plic_data *pd = &plic_data;
 	size_t n = 0;
 
@@ -268,6 +269,7 @@ void plic_init(paddr_t plic_base_pa)
 	plic_set_threshold(pd, 0);
 
 	interrupt_main_init(&plic_data.chip);
+#endif
 }
 
 void plic_it_handle(void)
