@@ -5,13 +5,13 @@
  */
 
 #include <console.h>
-#include <drivers/ns16550.h>
+#include <drivers/semihosting_console.h>
 #include <drivers/plic.h>
 #include <kernel/boot.h>
 #include <kernel/tee_common_otp.h>
 #include <platform_config.h>
 
-static struct ns16550_data console_data __nex_bss;
+static struct semihosting_console_data console_data __nex_bss;
 
 register_ddr(DRAM_BASE, DRAM_SIZE);
 
@@ -32,8 +32,12 @@ void boot_secondary_init_intc(void)
 
 void console_init(void)
 {
-	ns16550_init(&console_data, UART2_BASE + UART2_REG_OFFSET,
-		     IO_WIDTH_U8, UART2_REG_SHIFT);
+	/* User must only choose one of the following two ways */
+	/* 1. Output log to a file on semihosting host side system */
+	//semihosting_console_init(&console_data, "semihosting.txt");
+	/* 2. Output log to semihosting host side console */
+	semihosting_console_init(&console_data, NULL);
+
 	register_serial_console(&console_data.chip);
 }
 

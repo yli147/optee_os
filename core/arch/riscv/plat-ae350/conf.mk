@@ -33,7 +33,9 @@ $(call force,CFG_RISCV_M_MODE,n)
 $(call force,CFG_RISCV_S_MODE,y)
 $(call force,CFG_RISCV_PLIC,y)
 $(call force,CFG_RISCV_SBI_CONSOLE,n)
-$(call force,CFG_16550_UART,y)
+$(call force,CFG_16550_UART,n)
+$(call force,CFG_SEMIHOSTING,y)
+$(call force,CFG_SEMIHOSTING_CONSOLE,y)
 $(call force,CFG_RISCV_TIME_SOURCE_RDTIME,y)
 CFG_RISCV_MTIME_RATE ?= 60000000
 CFG_RISCV_SBI ?= y
