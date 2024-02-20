@@ -17,6 +17,7 @@
 #include <tee/teeabi_opteed_macros.h>
 
 #define TEE_ABI_BASE_ADDR 0xf47f0000
+#define TEE_ABI_BASE_PHYS_ADDR 0xf17f0000
 #define SBI_EXT_RPXY 0x52505859
 /*
  * Implement based on the transport method used to communicate between
@@ -37,6 +38,17 @@ FUNC thread_return_to_udomain , :
 	li  	a4, 32
 	j 	abi_return
 abi_entry:
+	mv	t0, a1
+	li  	a7, SBI_EXT_RPXY  /* SBI_EXT_RPXY */
+	li  	a6, 0x01          /* SBI_EXT_RPXY_SET_SHMEM */
+	li  	a0, 0x00001000    /* SHMEM SIZE */
+	li  	a1, TEE_ABI_BASE_PHYS_ADDR  /* SHMEM_ADDR */
+	li  	a2, 0x0
+	li  	a3, 0x0
+	li  	a4, 0x0
+	li  	a5, 0x0
+	ecall
+	mv	a1, t0
 	li  	t0, TEE_ABI_BASE_ADDR
 	sd  	a1, 0(t0)
 	li  	a4, 0
