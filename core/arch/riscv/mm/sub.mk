@@ -1,5 +1,6 @@
 srcs-y += core_mmu_arch.c
 srcs-y += tlb_helpers_rv.S
+srcs-$(CFG_CORE_DYN_SHM) += mobj_dyn_shm.c
 
 ifeq ($(CFG_SYSCALL_FTRACE),y)
 # We would not like to profile MMU APIs as these are used to switch TA
