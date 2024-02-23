@@ -1,0 +1,55 @@
+From 94167dba466fcbb00ff0c17c8a2332c0603f3206 Mon Sep 17 00:00:00 2001
+From: Alvin Chang <alvinga@andestech.com>
+Date: Fri, 23 Feb 2024 09:48:35 +0800
+Subject: [PATCH] core: riscv: Fix PTE creation when freeing PTE
+
+The core_mmu_pte_create() is also called when MM core frees the pages,
+which means the PTE should be zero. Current implementation always sets
+valid bit (V), which is not proper way when clearing PTE. Fix it by only
+honoring pte_bits parameter, which may be constructed in
+mattr_to_pte_bits().
+
+The core_mmu_ptp_create() is used to create non-leaf PTE, which points
+to the next level of the page table. According to RISC-V privilege Spec,
+non-leaf PTE only needs V bit. Therefore, we just give the V bit to
+core_mmu_pte_create() when we want to create non-leaf PTE.
+
+Signed-off-by: Alvin Chang <alvinga@andestech.com>
+Reviewed-by: Yu Chien Peter Lin <peterlin@andestech.com>
+Reviewed-by: Marouene Boubakri <marouene.boubakri@nxp.com>
+---
+ core/arch/riscv/mm/core_mmu_arch.c | 16 ++++++++++++----
+ 1 file changed, 12 insertions(+), 4 deletions(-)
+
+diff --git a/core/arch/riscv/mm/core_mmu_arch.c b/core/arch/riscv/mm/core_mmu_arch.c
+index f40ca22a2..8697a9fda 100644
+--- a/core/arch/riscv/mm/core_mmu_arch.c
++++ b/core/arch/riscv/mm/core_mmu_arch.c
+@@ -113,15 +113,23 @@ static bool __maybe_unused core_mmu_entry_is_branch(struct mmu_pte *pte)
+ 	return !core_mmu_entry_is_leaf(pte);
+ }
+ 
+-static unsigned long core_mmu_pte_create(unsigned long ppn, uint8_t perm)
++static unsigned long core_mmu_pte_create(unsigned long ppn, uint8_t pte_bits)
+ {
+-	return SHIFT_U64(ppn, PTE_PPN_SHIFT) | PTE_V | perm;
++	/*
++	 * This function may be called from core_mmu_set_entry(). There is a
++	 * case that MM core wants to clear PTE by calling core_mmu_set_entry()
++	 * with zero physical address and zero memory attributes, which turns
++	 * @ppn and @pte_bits in this function to be both zero. In this case, we
++	 * should create zero PTE without setting its V bit.
++	 */
++
++	return SHIFT_U64(ppn, PTE_PPN_SHIFT) | pte_bits;
+ }
+ 
+ static unsigned long core_mmu_ptp_create(unsigned long ppn)
+ {
+-	/* set perms to 0 since core_mmu_pte_create() already adds PTE_V */
+-	return core_mmu_pte_create(ppn, 0);
++	/* Set V bit to create PTE points to next level of the page table. */
++	return core_mmu_pte_create(ppn, PTE_V);
+ }
+ 
+ static unsigned long core_mmu_pte_ppn(struct mmu_pte *pte)
