@@ -728,8 +728,10 @@ void core_init_mmu_regs(struct core_mmu_config *cfg)
 {
 	struct mmu_partition *prtn = core_mmu_get_prtn();
 
-	cfg->satp = core_mmu_pgt_to_satp(prtn->asid,
-					 core_mmu_get_root_pgt_va(prtn));
+	for (int core = 0; core < CFG_TEE_CORE_NB_CORE; core++) {
+		cfg->satp[core] = core_mmu_pgt_to_satp(prtn->asid,
+						       &prtn->root_pgt[core]);
+	}
 }
 
 enum core_mmu_fault core_mmu_get_fault_type(uint32_t fault_descr)
