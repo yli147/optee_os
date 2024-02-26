@@ -250,6 +250,9 @@ UNWIND(	.cantunwind)
 	cpu_is_ready
 
 	jal	boot_init_secondary
+	li	a0, TEEABI_OPTEED_RETURN_ENTRY_DONE
+	la	a1, thread_vector_table
+	j	thread_return_to_udomain
 	j	.
 END_FUNC reset_secondary
 
