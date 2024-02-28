@@ -16,6 +16,9 @@
 #include <tee/teeabi_opteed.h>
 #include <tee/teeabi_opteed_macros.h>
 
+#define TEE_ABI_BASE_ADDR 0xf47f0000
+#define TEE_ABI_BASE_PHYS_ADDR 0xf17f0000
+#define SBI_EXT_RPXY 0x52505859
 /*
  * Implement based on the transport method used to communicate between
  * untrusted domain and trusted domain. It could be an SBI/ECALL-based to
@@ -28,10 +31,33 @@
  *                               unsigned long arg4, unsigned long arg5);
  */
 FUNC thread_return_to_udomain , :
-	/* Caller should provide arguments in a0~a5 */
+	/* Caller should put arguments in shared memory */
 #if defined(CFG_RISCV_SBI)
-	li	a7, SBI_EXT_TEE		/* extension ID */
-	li	a6, 0			/* function ID (unused) */
+	li  	t0, TEEABI_OPTEED_RETURN_ENTRY_DONE
+	beq 	a0, t0, abi_entry
+	li  	a3, 32
+	j 	abi_return
+abi_entry:
+	mv	t0, a1
+	li  	a7, SBI_EXT_RPXY  /* SBI_EXT_RPXY */
+	li  	a6, 0x01          /* SBI_EXT_RPXY_SET_SHMEM */
+	li  	a0, 0x00001000    /* SHMEM SIZE */
+	li  	a1, TEE_ABI_BASE_PHYS_ADDR  /* SHMEM_ADDR */
+	li  	a2, 0x0
+	li  	a3, 0x0
+	li  	a4, 0x0
+	li  	a5, 0x0
+	ecall
+	mv	a1, t0
+	li  	t0, TEE_ABI_BASE_ADDR
+	sd  	a1, 0(t0)
+	li  	a3, 0
+abi_return:
+	li  	a7, SBI_EXT_RPXY    /* SBI_EXT_RPXY */
+	li  	a6, 0x02            /* SBI_EXT_RPXY_SEND_NORMAL_MESSAGE */
+	li  	a0, 0x10000         /* RPXY_TRANS_PROT_SEC | SBI_EXT_RPXY_TRANSPORT_ID */
+	li  	a1, 0x01            /* SPD_SRVGRP_BASE */
+	li  	a2, 0x02            /* SPD_BASE_SRV_COMPLETE */
 	ecall
 #else
 	/* Other protocol */
@@ -60,10 +86,12 @@ FUNC thread_std_abi_entry , :
 	jal	thread_state_free
 
 	/* Restore __thread_std_abi_entry() return value */
-	mv	a1, s0
-	li	a2, 0
-	li	a3, 0
-	li	a4, 0
+	li  	t0, TEE_ABI_BASE_ADDR
+	sd  	s0, 0(t0)
+	li  	a0, 0
+	sd  	a0, 8(t0)
+	sd  	a0, 16(t0)
+	sd  	a0, 24(t0)
 	li	a0, TEEABI_OPTEED_RETURN_CALL_DONE
 
 	/* Return to untrusted domain */
@@ -114,10 +142,11 @@ FUNC thread_rpc , :
 	la	a2, .thread_rpc_return
 	jal	thread_state_suspend
 
-	mv	a4, a0	/* thread index */
-	mv	a1, s2	/* rv[0] */
-	mv	a2, s3	/* rv[1] */
-	mv	a3, s4	/* rv[2] */
+	li  	t0, TEE_ABI_BASE_ADDR
+	sd  	a0, 24(t0) /* thread index */
+	sd  	s2, 0(t0) /* rv[0] */
+	sd  	s3, 8(t0) /* rv[1] */
+	sd  	s4, 16(t0) /* rv[2] */
 	li	a0, TEEABI_OPTEED_RETURN_CALL_DONE
 
 	/* Return to untrusted domain */
@@ -151,6 +180,7 @@ FUNC thread_rpc , :
 END_FUNC thread_rpc
 
 LOCAL_FUNC vector_std_abi_entry, : , .identity_map
+	li  	a0, TEE_ABI_BASE_ADDR
 	jal	thread_handle_std_abi
 	/*
 	 * Normally thread_handle_std_abi() should return via
@@ -159,10 +189,12 @@ LOCAL_FUNC vector_std_abi_entry, : , .identity_map
 	 * return.
 	 */
 	/* Restore thread_handle_std_abi() return value */
-	mv	a1, a0
-	li	a2, 0
-	li	a3, 0
-	li	a4, 0
+	li  	t0, TEE_ABI_BASE_ADDR
+	sd  	a0, 0(t0)
+	li  	a0, 0
+	sd  	a0, 8(t0)
+	sd  	a0, 16(t0)
+	sd  	a0, 24(t0)
 	li	a0, TEEABI_OPTEED_RETURN_CALL_DONE
 
 	/* Return to untrusted domain */
@@ -170,12 +202,8 @@ LOCAL_FUNC vector_std_abi_entry, : , .identity_map
 END_FUNC vector_std_abi_entry
 
 LOCAL_FUNC vector_fast_abi_entry , : , .identity_map
-	addi    sp, sp, -THREAD_ABI_ARGS_SIZE
-	store_xregs sp, THREAD_ABI_ARGS_A0, REG_A0, REG_A7
-	mv      a0, sp
+	li  a0, TEE_ABI_BASE_ADDR
 	jal	thread_handle_fast_abi
-	load_xregs sp, THREAD_ABI_ARGS_A0, REG_A1, REG_A7
-	addi    sp, sp, THREAD_ABI_ARGS_SIZE
 
 	li	a0, TEEABI_OPTEED_RETURN_CALL_DONE
 	/* Return to untrusted domain */
