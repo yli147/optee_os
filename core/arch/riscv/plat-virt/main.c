@@ -4,13 +4,13 @@
  */
 
 #include <console.h>
-#include <drivers/ns16550.h>
+#include <drivers/semihosting_console.h>
 #include <drivers/plic.h>
 #include <kernel/boot.h>
 #include <kernel/tee_common_otp.h>
 #include <platform_config.h>
 
-static struct ns16550_data console_data __nex_bss;
+static struct semihosting_console_data console_data __nex_bss;
 
 register_ddr(DRAM_BASE, DRAM_SIZE);
 
@@ -29,52 +29,14 @@ void boot_secondary_init_intc(void)
 }
 #endif /* CFG_RISCV_PLIC */
 
-static void read_console(void)
-{
-	struct serial_chip *cons = &console_data.chip;
-
-	if (!cons->ops->getchar || !cons->ops->have_rx_data)
-		return;
-
-	while (cons->ops->have_rx_data(cons)) {
-		int ch __maybe_unused = cons->ops->getchar(cons);
-
-		DMSG("got 0x%x", ch);
-	}
-}
-
-static enum itr_return console_itr_cb(struct itr_handler *h __maybe_unused)
-{
-	read_console();
-	return ITRR_HANDLED;
-}
-
-static struct itr_handler console_itr = {
-	.it = UART1_IRQ,
-	.flags = ITRF_TRIGGER_LEVEL,
-	.handler = console_itr_cb,
-};
-DECLARE_KEEP_PAGER(console_itr);
-
-static TEE_Result init_console_itr(void)
-{
-	TEE_Result res = TEE_ERROR_GENERIC;
-
-	console_itr.chip = interrupt_get_main_chip();
-	res = interrupt_add_configure_handler(&console_itr, IRQ_TYPE_LEVEL_HIGH,
-					      1);
-	if (res)
-		return res;
-
-	interrupt_enable(console_itr.chip, console_itr.it);
-
-	return TEE_SUCCESS;
-}
-driver_init(init_console_itr);
-
 void console_init(void)
 {
-	ns16550_init(&console_data, UART1_BASE, IO_WIDTH_U8, 0);
+	/* User must only choose one of the following two ways */
+	/* 1. Output log to a file on semihosting host side system */
+	//semihosting_console_init(&console_data, "semihosting.txt");
+	/* 2. Output log to semihosting host side console */
+	semihosting_console_init(&console_data, NULL);
+
 	register_serial_console(&console_data.chip);
 }
 
