@@ -352,6 +352,7 @@ static enum fault_type get_fault_type(struct abort_info *ai)
 
 void abort_handler(uint32_t abort_type, struct thread_abort_regs *regs)
 {
+	uint32_t exceptions = thread_mask_exceptions(THREAD_EXCP_ALL);
 	struct abort_info ai;
 
 	set_abort_info(abort_type, regs, &ai);
@@ -391,4 +392,6 @@ void abort_handler(uint32_t abort_type, struct thread_abort_regs *regs)
 		handle_user_mode_panic(&ai);
 		break;
 	}
+
+	thread_unmask_exceptions(exceptions);
 }
