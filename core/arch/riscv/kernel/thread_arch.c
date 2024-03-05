@@ -321,7 +321,7 @@ static void thread_interrupt_handler(unsigned long cause,
 		thread_unhandled_trap(regs, cause);
 		break;
 	case IRQ_XEXT:
-		thread_irq_handler();
+		thread_foreign_interrupt_handler(regs, user);
 		break;
 	default:
 		thread_unhandled_trap(regs, cause);
