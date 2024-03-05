@@ -207,6 +207,7 @@ void boot_init_primary_late(unsigned long fdt,
 	IMSG("Primary CPU initialized");
 
 #ifdef CFG_RISCV_S_MODE
+	sbi_rpxy_setup_shmem(get_core_pos());
 	start_secondary_cores();
 #endif
 }
@@ -229,6 +230,7 @@ static void init_secondary_helper(unsigned long nsec_entry)
 	thread_init_per_cpu();
 	init_sec_mon(nsec_entry);
 	boot_secondary_init_intc();
+	sbi_rpxy_setup_shmem(get_core_pos());
 
 	IMSG("Secondary CPU %zu initialized", pos);
 }
