@@ -74,6 +74,8 @@
 	/* To unwind stack we need s0, which is frame pointer. */
 	store_xregs sp, THREAD_TRAP_REG_S0, REG_S0
 #endif
+	store_xregs sp, THREAD_TRAP_REG_S0, REG_S0, REG_S1
+	store_xregs sp, THREAD_TRAP_REG_S2, REG_S2, REG_S11
 
 	csrr	t0, CSR_XIE
 	store_xregs sp, THREAD_TRAP_REG_IE, REG_T0
@@ -113,10 +115,8 @@
 	load_xregs sp, THREAD_TRAP_REG_A0, REG_A0, REG_A7
 	load_xregs sp, THREAD_TRAP_REG_T0, REG_T0, REG_T2
 	load_xregs sp, THREAD_TRAP_REG_T3, REG_T3, REG_T6
-#if defined(CFG_UNWIND)
-	/* To unwind stack we need s0, which is frame pointer. */
-	load_xregs sp, THREAD_TRAP_REG_S0, REG_S0
-#endif
+	load_xregs sp, THREAD_TRAP_REG_S0, REG_S0, REG_S1
+	load_xregs sp, THREAD_TRAP_REG_S2, REG_S2, REG_S11
 
 .if \mode == TRAP_MODE_USER
 	/* Set scratch as thread_core_local */
