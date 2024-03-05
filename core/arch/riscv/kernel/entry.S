@@ -263,10 +263,12 @@ UNWIND(	.cantunwind)
 	cpu_is_ready
 
 	jal	boot_init_secondary
-
+	
 #ifdef CFG_RISCV_S_MODE
 	/* Return to untrusted domain */
-	li	a0, TEEABI_OPTEED_RETURN_ON_DONE
+	li	a0, TEEABI_OPTEED_RETURN_ENTRY_DONE
+	# li	a0, TEEABI_OPTEED_RETURN_ON_DONE
+	la	a1, thread_vector_table
 	j	thread_return_to_udomain
 #endif
 	j	.
