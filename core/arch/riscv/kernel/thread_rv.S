@@ -11,6 +11,9 @@
 #include <mm/core_mmu.h>
 #include <riscv.h>
 #include <riscv_macros.S>
+#include <tee/optee_abi.h>
+#include <tee/teeabi_opteed.h>
+#include <tee/teeabi_opteed_macros.h>
 
 .macro get_thread_ctx res, tmp0
 	lw	\tmp0, THREAD_CORE_LOCAL_CURR_THREAD(tp)
@@ -324,3 +327,81 @@ FUNC thread_resume , :
 
 	XRET
 END_FUNC thread_resume
+
+/*
+ * void thread_foreign_interrupt_handler(struct thread_trap_regs *regs,
+ *                                       bool user)
+ */
+FUNC thread_foreign_interrupt_handler , :
+	/* Mask all interrupt. */
+	csrw	CSR_XIE, x0
+
+	mv	s0, a0
+	mv	s1, a1
+	/* tp = struct thread_core_local */
+
+	/*
+	 * Update core local flags
+	 */
+	LDR	s2, THREAD_CORE_LOCAL_FLAGS(tp)
+	slli	s2, s2, THREAD_CLF_SAVED_SHIFT
+	ori	s2, s2, THREAD_CLF_TMP
+	ori	s2, s2, THREAD_CLF_FIQ
+	STR	s2, THREAD_CORE_LOCAL_FLAGS(tp)
+
+	/* Get pointer to current thread context into s2. */
+	get_thread_ctx s2, s3
+
+	/*
+	 * Copy struct thread_trap_regs to struct thread_ctx_regs.
+	 * a0 = struct thread_trap_regs *regs
+	 * a1 = struct thread_ctx_regs *ctx
+	 */
+	mv	a0, s0
+	mv	a1, s2
+	call	thread_copy_trap_regs_to_ctx
+
+	/*
+	 * We are trapping from thread_trap_vect(), but we are not exitting from
+	 * that function. Therefore, we need to restore necessary registers
+	 * here.
+	 * - For trap_from_user(), we restore CSR_XSCRATCH as tp in
+	     thread_resume_from_rpc().
+	 * - For trap_from_kernel(), we restore the value of kernel sp.
+	 */
+	bnez	s1, 1f
+	/* trap from kernel, ctx->sp += THREAD_TRAP_REGS_SIZE. */
+	LDR	s3, THREAD_CTX_REG_SP(s2)
+	addi	s3, s3, THREAD_TRAP_REGS_SIZE
+	STR	s3, THREAD_CTX_REG_SP(s2)
+1:
+	/* Load tmp_stack_va_end as current sp. */
+	LDR	sp, THREAD_CORE_LOCAL_TMP_STACK_VA_END(tp)
+
+	/*
+	 * Mark current thread as suspended.
+	 * a0 = THREAD_FLAGS_EXIT_ON_FOREIGN_INTR
+	 * a1 = status
+	 * a2 = epc
+	 * thread_state_suspend(flags, status, pc)
+	 */
+	li	a0, THREAD_FLAGS_EXIT_ON_FOREIGN_INTR
+	LDR	a1, THREAD_CTX_REG_STATUS(s2)
+	LDR	a2, THREAD_CTX_REG_EPC(s2)
+	call	thread_state_suspend
+	/* Now return value a0 contains suspended thread ID. */
+
+	/* Update core local flags */
+	LDR	s3, THREAD_CORE_LOCAL_FLAGS(tp)
+	srli	s3, s3, THREAD_CLF_SAVED_SHIFT
+	ori	s3, s3, THREAD_CLF_TMP
+	STR	s3, THREAD_CORE_LOCAL_FLAGS(tp)
+
+	/* Passing thread index in a0, and prepare to return to REE. */
+	mv	a4, a0
+	li	a0, TEEABI_OPTEED_RETURN_CALL_DONE
+	li	a1, OPTEE_ABI_RETURN_RPC_FOREIGN_INTR
+	mv	a2, x0
+	mv	a3, x0
+	j	thread_return_to_udomain
+END_FUNC thread_foreign_interrupt_handler

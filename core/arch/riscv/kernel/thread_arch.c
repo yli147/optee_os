@@ -234,6 +234,47 @@ static void copy_trap_to_abort(struct thread_trap_regs *trap_regs,
 	};
 }
 
+void thread_copy_trap_regs_to_ctx(struct thread_trap_regs *trap_regs,
+				  struct thread_ctx_regs *ctx_regs)
+{
+	*ctx_regs = (struct thread_ctx_regs) {
+		.status = trap_regs->status,
+		.epc = trap_regs->epc,
+		.ie = trap_regs->ie,
+		.ra = trap_regs->ra,
+		.sp = trap_regs->sp,
+		.gp = trap_regs->gp,
+		.tp = trap_regs->tp,
+		.t0 = trap_regs->t0,
+		.t1 = trap_regs->t1,
+		.t2 = trap_regs->t2,
+		.s0 = trap_regs->s0,
+		.s1 = trap_regs->s1,
+		.a0 = trap_regs->a0,
+		.a1 = trap_regs->a1,
+		.a2 = trap_regs->a2,
+		.a3 = trap_regs->a3,
+		.a4 = trap_regs->a4,
+		.a5 = trap_regs->a5,
+		.a6 = trap_regs->a6,
+		.a7 = trap_regs->a7,
+		.s2 = trap_regs->s2,
+		.s3 = trap_regs->s3,
+		.s4 = trap_regs->s4,
+		.s5 = trap_regs->s5,
+		.s6 = trap_regs->s6,
+		.s7 = trap_regs->s7,
+		.s8 = trap_regs->s8,
+		.s9 = trap_regs->s9,
+		.s10 = trap_regs->s10,
+		.s11 = trap_regs->s11,
+		.t3 = trap_regs->t3,
+		.t4 = trap_regs->t4,
+		.t5 = trap_regs->t5,
+		.t6 = trap_regs->t6,
+	};
+}
+
 static void thread_abort_handler(struct thread_trap_regs *trap_regs,
 				 unsigned long cause)
 {
@@ -267,11 +308,12 @@ static void thread_irq_handler(void)
 }
 
 static void thread_interrupt_handler(unsigned long cause,
-				     struct thread_trap_regs *regs)
+				     struct thread_trap_regs *regs,
+				     bool user)
 {
 	switch (cause & LONG_MAX) {
 	case IRQ_XTIMER:
-		clear_csr(CSR_XIE, CSR_XIE_TIE);
+		thread_foreign_interrupt_handler(regs, user);
 		break;
 	case IRQ_XSOFT:
 		thread_unhandled_trap(regs, cause);
@@ -286,14 +328,14 @@ static void thread_interrupt_handler(unsigned long cause,
 
 void thread_trap_handler(long cause, unsigned long epc __unused,
 			 struct thread_trap_regs *regs,
-			 bool user __maybe_unused)
+			 bool user)
 {
 	/*
 	 * The Interrupt bit (XLEN-1) in the cause register is set
 	 * if the trap was caused by an interrupt.
 	 */
 	if (cause < 0)
-		thread_interrupt_handler(cause, regs);
+		thread_interrupt_handler(cause, regs, user);
 	/*
 	 * Otherwise, cause is never written by the implementation,
 	 * though it may be explicitly written by software.
