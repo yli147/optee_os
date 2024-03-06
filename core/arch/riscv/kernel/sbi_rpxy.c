@@ -16,21 +16,6 @@ struct optee_msg_payload {
 	unsigned long data[5];	/* a0~a4 */
 };
 
-#define RPXY_SHMEM_BASE_PHYS_ADDR	0xf17f0000
-register_phys_mem_pgdir(MEM_AREA_IO_NSEC, RPXY_SHMEM_BASE_PHYS_ADDR,
-			SMALL_PAGE_SIZE * 8);
-
-static paddr_t sbi_rpxy_shmem_pa[8] = {
-	RPXY_SHMEM_BASE_PHYS_ADDR,		/* Shared-memory for HART 0 */
-	RPXY_SHMEM_BASE_PHYS_ADDR + 0x1000,	/* Shared-memory for HART 1 */
-	RPXY_SHMEM_BASE_PHYS_ADDR + 0x2000,	/* Shared-memory for HART 2 */
-	RPXY_SHMEM_BASE_PHYS_ADDR + 0x3000,	/* Shared-memory for HART 3 */
-	RPXY_SHMEM_BASE_PHYS_ADDR + 0x4000,	/* Shared-memory for HART 4 */
-	RPXY_SHMEM_BASE_PHYS_ADDR + 0x5000,	/* Shared-memory for HART 5 */
-	RPXY_SHMEM_BASE_PHYS_ADDR + 0x6000,	/* Shared-memory for HART 6 */
-	RPXY_SHMEM_BASE_PHYS_ADDR + 0x7000,	/* Shared-memory for HART 7 */
-};
-
 struct sbi_rpxy {
 	struct io_pa_va shmem_base;
 	bool active;
@@ -53,24 +38,33 @@ int sbi_rpxy_setup_shmem(unsigned int hartid)
 {
 	struct sbiret ret = { };
 	struct sbi_rpxy *rpxy = &sbi_rpxy_hart_data[hartid];
+	void *shmem = NULL;
 
 	if (rpxy->active) {
 		return SBI_ERR_FAILURE;
 	}
 
-	rpxy->shmem_base.pa = sbi_rpxy_shmem_pa[hartid];
-	rpxy->shmem_base.va = io_pa_or_va(&rpxy->shmem_base, SMALL_PAGE_SIZE);
+	/* Allocate 4 KiB memory aligend with 4 KiB (required by SBI RPXY). */
+	shmem = memalign(SMALL_PAGE_SIZE, SMALL_PAGE_SIZE);
+	if (!shmem) {
+		EMSG("Allocate RPXY shared memory fail");
+		return SBI_ERR_FAILURE;
+	}
+	rpxy->shmem_base.va = (vaddr_t)shmem;
+	rpxy->shmem_base.pa = virt_to_phys(shmem);
 
 	ret = sbi_ecall(SBI_EXT_RPXY, SBI_EXT_RPXY_SETUP_SHMEM,
 			SMALL_PAGE_SIZE, rpxy->shmem_base.pa, 0, 0);
 	if (ret.error) {
+		EMSG("Setup RPXY shared memory for hart %d error %ld",
+		     hartid, ret.error);
 		return SBI_ERR_FAILURE;
 	}
 
 	rpxy->active = true;
 
-	EMSG("hart[%d] PA: 0x%lX, VA: 0x%lX\n", hartid, rpxy->shmem_base.pa,
-	     rpxy->shmem_base.va);
+	EMSG("Setup RPXY shared memory for hart %d OK, PA: 0x%lX, VA: 0x%lX\n",
+	     hartid, rpxy->shmem_base.pa, rpxy->shmem_base.va);
 
 	return SBI_SUCCESS;
 }
